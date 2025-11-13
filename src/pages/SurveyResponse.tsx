@@ -159,6 +159,24 @@ export default function SurveyResponse() {
                         ))}
                       </RadioGroup>
                     )}
+                    
+                    {q.type === 'rating' && (
+                      <RadioGroup
+                        required={q.required}
+                        value={responses[`q${index}`] || ''}
+                        onValueChange={(value) => setResponses({ ...responses, [`q${index}`]: value })}
+                        className="flex gap-4"
+                      >
+                        {[1, 2, 3, 4, 5].map((rating) => (
+                          <div key={rating} className="flex flex-col items-center space-y-1">
+                            <RadioGroupItem value={rating.toString()} id={`q${index}-rating${rating}`} />
+                            <Label htmlFor={`q${index}-rating${rating}`} className="font-normal text-sm">
+                              {rating}
+                            </Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    )}
                   </div>
                 ))}
                 
