@@ -82,7 +82,7 @@ serve(async (req) => {
         `;
 
         const { data, error } = await resend.emails.send({
-          from: "Survey <mahantayushfaps@gmail.com>",
+          from: "Survey <onboarding@resend.dev>",
           to: [contact.email],
           subject: survey.title,
           html: emailHtml,
