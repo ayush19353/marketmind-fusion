@@ -94,13 +94,13 @@ Score each contact's match with the persona (0-100) and explain why.`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: 'json_object' },
-        max_completion_tokens: 3000,
+        max_tokens: 3000,
       }),
     });
 
@@ -111,11 +111,17 @@ Score each contact's match with the persona (0-100) and explain why.`;
     }
 
     const data = await response.json();
+    console.log('OpenAI response:', JSON.stringify(data));
+    
     const content = data.choices[0].message.content;
-    const matchResults = JSON.parse(content);
+    const parsedResult = JSON.parse(content);
+    
+    // Handle both array format and object with matches key
+    const matchResults = Array.isArray(parsedResult) ? parsedResult : (parsedResult.matches || []);
+    console.log(`Parsed ${matchResults.length} match results`);
 
     // Filter matches above minimum score
-    const goodMatches = matchResults.matches
+    const goodMatches = matchResults
       .filter((m: any) => m.match_score >= minMatchScore)
       .sort((a: any, b: any) => b.match_score - a.match_score);
 
