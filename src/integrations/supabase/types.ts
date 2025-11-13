@@ -107,6 +107,7 @@ export type Database = {
       }
       research_projects: {
         Row: {
+          archived: boolean
           created_at: string
           id: string
           mode: string
@@ -117,6 +118,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          archived?: boolean
           created_at?: string
           id?: string
           mode?: string
@@ -127,6 +129,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          archived?: boolean
           created_at?: string
           id?: string
           mode?: string
