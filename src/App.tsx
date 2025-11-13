@@ -8,6 +8,10 @@ import Dashboard from "./pages/Dashboard";
 import ProductInput from "./pages/ProductInput";
 import Hypothesis from "./pages/Hypothesis";
 import ResearchPlan from "./pages/ResearchPlan";
+import Instruments from "./pages/Instruments";
+import DataInsights from "./pages/DataInsights";
+import Analysis from "./pages/Analysis";
+import Report from "./pages/Report";
 import MarketingStudio from "./pages/MarketingStudio";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -28,6 +32,10 @@ const App = () => (
           <Route path="/product-input" element={<ProtectedRoute><ProductInput /></ProtectedRoute>} />
           <Route path="/hypothesis" element={<ProtectedRoute><Hypothesis /></ProtectedRoute>} />
           <Route path="/research-plan" element={<ProtectedRoute><ResearchPlan /></ProtectedRoute>} />
+          <Route path="/instruments" element={<ProtectedRoute><Instruments /></ProtectedRoute>} />
+          <Route path="/data-insights" element={<ProtectedRoute><DataInsights /></ProtectedRoute>} />
+          <Route path="/analysis" element={<ProtectedRoute><Analysis /></ProtectedRoute>} />
+          <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
           <Route path="/marketing-studio" element={<ProtectedRoute><MarketingStudio /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

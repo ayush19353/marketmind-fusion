@@ -13,14 +13,14 @@ import { useToast } from "@/hooks/use-toast";
 type Mode = "guided" | "expert";
 
 const steps = [
-  { id: "product", label: "Product Input", path: "/product-input" },
-  { id: "hypothesis", label: "Hypotheses", path: "/hypothesis" },
-  { id: "plan", label: "Research Plan", path: "/research-plan" },
-  { id: "instruments", label: "Instruments", path: "#", disabled: true },
-  { id: "collection", label: "Data Collection", path: "#", disabled: true },
-  { id: "analysis", label: "Analysis", path: "#", disabled: true },
-  { id: "report", label: "Report", path: "#", disabled: true },
-  { id: "optimization", label: "Optimization Hub", path: "#", disabled: true },
+  { id: "product", label: "Product Input", path: "/product-input", description: "Input your product idea" },
+  { id: "hypothesis", label: "Hypotheses", path: "/hypothesis", description: "AI-generated hypotheses" },
+  { id: "plan", label: "Research Plan", path: "/research-plan", description: "Complete research strategy" },
+  { id: "instruments", label: "AI Instruments", path: "/instruments", description: "Survey & interview designer" },
+  { id: "collection", label: "Data Insights", path: "/data-insights", description: "Collect & analyze responses" },
+  { id: "analysis", label: "AI Analysis", path: "/analysis", description: "Deep insights & segmentation" },
+  { id: "report", label: "AI Report", path: "/report", description: "Executive insights report" },
+  { id: "optimization", label: "Marketing Studio", path: "/marketing-studio", description: "GenAI marketing assets" },
 ];
 
 const Dashboard = () => {
@@ -318,12 +318,8 @@ const Dashboard = () => {
               {steps.map((step, index) => (
                 <Card
                   key={step.id}
-                  className={`group transition-all duration-300 ${
-                    step.disabled
-                      ? "opacity-50 cursor-not-allowed"
-                      : "hover:shadow-medium hover:border-primary/50 cursor-pointer"
-                  }`}
-                  onClick={() => !step.disabled && navigate(step.path)}
+                  className="group transition-all duration-300 hover:shadow-medium hover:border-primary/50 cursor-pointer"
+                  onClick={() => navigate(step.path)}
                 >
                   <CardHeader>
                     <div className="flex items-center justify-between">
@@ -331,18 +327,14 @@ const Dashboard = () => {
                         <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center text-white text-sm font-bold">
                           {index + 1}
                         </div>
-                        <CardTitle className="text-lg">{step.label}</CardTitle>
+                        <div>
+                          <CardTitle className="text-lg">{step.label}</CardTitle>
+                          <CardDescription className="text-xs mt-1">{step.description}</CardDescription>
+                        </div>
                       </div>
-                      {!step.disabled && (
-                        <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                      )}
+                      <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                     </div>
                   </CardHeader>
-                  {step.disabled && (
-                    <CardContent>
-                      <p className="text-sm text-muted-foreground">Coming soon</p>
-                    </CardContent>
-                  )}
                 </Card>
               ))}
             </div>
