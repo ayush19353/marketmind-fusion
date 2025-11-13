@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, UserPlus, Users, Send, Loader2, Mail, Target, TrendingUp, Upload, FileUp, BarChart3, Clock, MessageSquare } from "lucide-react";
+import { ArrowLeft, UserPlus, Users, Send, Loader2, Mail, Target, TrendingUp, FileUp, BarChart3, Clock, MessageSquare, Trash2 } from "lucide-react";
 import Papa from "papaparse";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
@@ -18,8 +18,72 @@ const SurveyAutomation = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const projectId = location.state?.projectId || localStorage.getItem('currentProjectId');
-  const productName = location.state?.productName || localStorage.getItem('productName');
+  const storedProjectId = typeof window !== 'undefined' ? localStorage.getItem('currentProjectId') : null;
+  const storedProductName = typeof window !== 'undefined' ? localStorage.getItem('productName') : "";
+  const initialProjectId = (location.state?.projectId as string | undefined) || storedProjectId || null;
+  const initialProductName = (location.state?.productName as string | undefined) || storedProductName || "";
+  const [projectId, setProjectId] = useState<string | null>(initialProjectId);
+  const [productName, setProductName] = useState<string>(initialProductName);
+
+  useEffect(() => {
+    const stateProjectId = location.state?.projectId as string | undefined;
+    if (stateProjectId && stateProjectId !== projectId) {
+      setProjectId(stateProjectId);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('currentProjectId', stateProjectId);
+      }
+    }
+
+    const stateProductName = location.state?.productName as string | undefined;
+    if (stateProductName && stateProductName !== productName) {
+      setProductName(stateProductName);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('productName', stateProductName);
+      }
+    }
+  }, [location.state, projectId, productName]);
+
+  // Resolve the most recently updated project when the page is opened directly or refreshed.
+  useEffect(() => {
+    if (projectId) return;
+
+    let cancelled = false;
+
+    const resolveLatestProject = async () => {
+      try {
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData?.user?.id;
+        if (!userId || cancelled) return;
+
+        const { data: latestProject, error } = await supabase
+          .from('research_projects')
+          .select('id, product_name')
+          .eq('user_id', userId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error || !latestProject || cancelled) return;
+
+        setProjectId(latestProject.id);
+        setProductName(latestProject.product_name || "");
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('currentProjectId', latestProject.id);
+          if (latestProject.product_name) {
+            localStorage.setItem('productName', latestProject.product_name);
+          }
+        }
+      } catch (error) {
+        console.error('Error resolving latest project:', error);
+      }
+    };
+
+    resolveLatestProject();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
 
   const [activeTab, setActiveTab] = useState("contacts");
   const [contacts, setContacts] = useState<any[]>([]);
@@ -29,6 +93,7 @@ const SurveyAutomation = () => {
   const [isMatching, setIsMatching] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [deletingContactId, setDeletingContactId] = useState<string | null>(null);
 
   // Contact form state
   const [newContact, setNewContact] = useState({
@@ -64,6 +129,7 @@ const SurveyAutomation = () => {
   }, [projectId]);
 
   const fetchSurveys = async () => {
+    if (!projectId) return;
     const { data, error } = await supabase
       .from('surveys')
       .select('*')
@@ -192,6 +258,7 @@ const SurveyAutomation = () => {
 
   const fetchContacts = async () => {
     try {
+      if (!projectId) return;
       const { data, error } = await supabase
         .from('contacts')
         .select('*')
@@ -207,16 +274,212 @@ const SurveyAutomation = () => {
 
   const fetchPersonas = async () => {
     try {
+      if (!projectId) return;
       const { data, error } = await supabase
         .from('customer_personas')
         .select('*')
         .eq('project_id', projectId);
 
       if (error) throw error;
-      setPersonas(data || []);
+      const personaList = data || [];
+      setPersonas(personaList);
+
+      if (personaList.length === 0) {
+        if (selectedPersonaId) {
+          setSelectedPersonaId("");
+        }
+        return;
+      }
+
+      const selectedExists = personaList.some((persona) => persona.id === selectedPersonaId);
+      if (!selectedExists) {
+        setSelectedPersonaId(personaList[0].id);
+      }
     } catch (error) {
       console.error('Error fetching personas:', error);
     }
+  };
+
+  const collectKeywords = (input: any): string[] => {
+    if (!input) return [];
+    if (typeof input === "string") {
+      return input
+        .split(/[\s,;/\n]+/)
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean);
+    }
+    if (Array.isArray(input)) {
+      return input.flatMap(collectKeywords);
+    }
+    if (typeof input === "object") {
+      return Object.values(input).flatMap(collectKeywords);
+    }
+    return [];
+  };
+
+  const parseAgeRange = (value?: string | null) => {
+    if (!value) return null;
+    const normalized = value.toString();
+    const rangeMatch = normalized.match(/(\d{1,3})\D+(\d{1,3})/);
+    if (rangeMatch) {
+      const min = parseInt(rangeMatch[1], 10);
+      const max = parseInt(rangeMatch[2], 10);
+      if (!Number.isNaN(min) && !Number.isNaN(max)) {
+        return { min, max };
+      }
+    }
+    const lowerBoundMatch = normalized.match(/(\d{1,3})\s*\+?/);
+    if (lowerBoundMatch) {
+      const min = parseInt(lowerBoundMatch[1], 10);
+      if (!Number.isNaN(min)) {
+        return { min, max: 120 };
+      }
+    }
+    return null;
+  };
+
+  const ageRangesOverlap = (
+    a: { min: number; max: number } | null,
+    b: { min: number; max: number } | null
+  ) => {
+    if (!a || !b) return false;
+    return a.min <= b.max && b.min <= a.max;
+  };
+
+  const buildLocalMatches = (persona: any, contactList: any[]) => {
+    const personaKeywordSet = new Set([
+      ...collectKeywords(persona.goals),
+      ...collectKeywords(persona.pain_points),
+      ...collectKeywords(persona.psychographics),
+      ...collectKeywords(persona.demographics),
+    ]);
+
+    const personaChannelSet = new Set(collectKeywords(persona.preferred_channels));
+    const personaIndustrySet = new Set(
+      collectKeywords([
+        persona.demographics?.industry,
+        persona.demographics?.sector,
+        persona.demographics?.profession,
+      ])
+    );
+    const personaPainSet = new Set(collectKeywords(persona.pain_points));
+
+    const personaRange = typeof persona.age_range === "string" ? parseAgeRange(persona.age_range) : null;
+    const personaAgeLabel = typeof persona.age_range === "string" ? persona.age_range.toLowerCase() : "";
+
+    return contactList.map((contact) => {
+      let score = 10;
+      const reasons: string[] = [];
+
+      const contactRange = typeof contact.age_range === "string" ? parseAgeRange(contact.age_range) : null;
+      const contactAgeLabel = typeof contact.age_range === "string" ? contact.age_range.toLowerCase() : "";
+
+      if (personaRange && contactRange && ageRangesOverlap(personaRange, contactRange)) {
+        score += 30;
+        reasons.push("Age range aligns with the persona focus.");
+      } else if (personaAgeLabel && contactAgeLabel && personaAgeLabel === contactAgeLabel) {
+        score += 28;
+        reasons.push("Age range matches the persona exactly.");
+      }
+
+      const contactKeywordSet = new Set([
+        ...collectKeywords(contact.interests),
+        ...collectKeywords(contact.demographics),
+        ...collectKeywords(contact.behavior_data),
+        ...collectKeywords(contact.notes),
+      ]);
+
+      const sharedKeywords = Array.from(personaKeywordSet).filter((keyword) => contactKeywordSet.has(keyword));
+      if (sharedKeywords.length > 0) {
+        const keywordScore = Math.min(40, 25 + sharedKeywords.length * 5);
+        score += keywordScore;
+        reasons.push(`Shared focus on ${sharedKeywords.slice(0, 3).join(', ')}.`);
+      }
+
+      const contactChannelSet = new Set([
+        ...collectKeywords(contact.behavior_data?.preferred_channels),
+        ...collectKeywords(contact.behavior_data?.channels),
+      ]);
+      const sharedChannels = Array.from(personaChannelSet).filter((channel) => contactChannelSet.has(channel));
+      if (sharedChannels.length > 0) {
+        score += 10;
+        reasons.push(`Preferred channels overlap (${sharedChannels.slice(0, 2).join(', ')}).`);
+      }
+
+      const contactIndustrySet = new Set([
+        ...collectKeywords(contact.demographics?.industry),
+        ...collectKeywords(contact.demographics?.sector),
+        ...collectKeywords(contact.demographics?.profession),
+      ]);
+      const sharedIndustries = Array.from(personaIndustrySet).filter((industry) => contactIndustrySet.has(industry));
+      if (sharedIndustries.length > 0) {
+        score += 12;
+        reasons.push(`Similar industry background (${sharedIndustries[0]}).`);
+      }
+
+      const contactPainKeywords = new Set(collectKeywords(contact.notes));
+      const sharedPain = Array.from(personaPainSet).filter((pain) => contactPainKeywords.has(pain));
+      if (sharedPain.length > 0) {
+        score += 8;
+        reasons.push(`Notes mention persona pain point (${sharedPain[0]}).`);
+      }
+
+      const finalScore = Math.min(100, Math.round(score));
+      const uniqueReasons = Array.from(new Set(reasons));
+      if (uniqueReasons.length === 0) {
+        uniqueReasons.push("Limited data available; included for manual review.");
+      }
+
+      return {
+        contact_id: contact.id,
+        contact,
+        match_score: finalScore,
+        reasons: uniqueReasons,
+      };
+    });
+  };
+
+  const mergeMatches = (
+    aiMatches: any[] = [],
+    heuristicMatches: any[] = [],
+    contactList: any[] = []
+  ) => {
+    const contactMap = new Map(contactList.map((contact) => [contact.id, contact]));
+    const mergedMap = new Map<string, any>();
+
+    const upsertMatch = (match: any) => {
+      if (!match) return;
+      const contactId = match.contact_id || match.contact?.id;
+      if (!contactId) return;
+
+      const contact = match.contact || contactMap.get(contactId);
+      if (!contact) return;
+
+      const score = typeof match.match_score === "number" ? Math.round(match.match_score) : 0;
+      const reasonsArray = Array.isArray(match.reasons)
+        ? match.reasons
+        : typeof match.reasons === "string"
+          ? [match.reasons]
+          : [];
+
+      const existing = mergedMap.get(contactId);
+      if (!existing || score > existing.match_score) {
+        mergedMap.set(contactId, {
+          contact_id: contactId,
+          contact,
+          match_score: Math.min(100, Math.max(0, score)),
+          reasons: Array.from(new Set(reasonsArray.filter(Boolean))),
+        });
+      } else {
+        const combined = new Set([...existing.reasons, ...reasonsArray.filter(Boolean)]);
+        existing.reasons = Array.from(combined);
+      }
+    };
+
+    aiMatches.forEach(upsertMatch);
+    heuristicMatches.forEach(upsertMatch);
+
+    return Array.from(mergedMap.values()).sort((a, b) => b.match_score - a.match_score);
   };
 
   const handleAddContact = async () => {
@@ -224,6 +487,15 @@ const SurveyAutomation = () => {
       toast({
         title: "Missing Information",
         description: "Please provide at least first name and email.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!projectId) {
+      toast({
+        title: "No Active Project",
+        description: "Select or create a project before adding contacts.",
         variant: "destructive",
       });
       return;
@@ -269,11 +541,57 @@ const SurveyAutomation = () => {
     }
   };
 
+  const handleDeleteContact = async (contactId: string) => {
+    if (!projectId) {
+      toast({
+        title: "No Active Project",
+        description: "Select or create a project before removing contacts.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDeletingContactId(contactId);
+    try {
+      const { error } = await supabase
+        .from('contacts')
+        .delete()
+        .eq('id', contactId);
+
+      if (error) throw error;
+
+      setContacts((prev) => prev.filter((contact) => contact.id !== contactId));
+      setMatches((prev) => prev.filter((match) => match.contact?.id !== contactId));
+
+      toast({
+        title: "Contact Removed",
+        description: "The contact has been deleted from this project.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Deletion Failed",
+        description: error.message || "Unable to delete the contact right now.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingContactId(null);
+    }
+  };
+
   const handleMatchPersona = async () => {
     if (!selectedPersonaId) {
       toast({
         title: "No Persona Selected",
         description: "Please select a persona to match against.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!projectId) {
+      toast({
+        title: "No Active Project",
+        description: "We couldn't find an active project context for matching.",
         variant: "destructive",
       });
       return;
@@ -288,30 +606,74 @@ const SurveyAutomation = () => {
       return;
     }
 
+    const persona = personas.find((p) => p.id === selectedPersonaId);
+    if (!persona) {
+      toast({
+        title: "Persona Not Available",
+        description: "The selected persona could not be found. Please refresh and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsMatching(true);
     try {
-      const { data, error } = await supabase.functions.invoke('match-persona-contacts', {
-        body: {
-          personaId: selectedPersonaId,
-          projectId,
-          minMatchScore,
+      let aiMatches: any[] = [];
+
+      try {
+        const { data, error } = await supabase.functions.invoke('match-persona-contacts', {
+          body: {
+            personaId: selectedPersonaId,
+            projectId,
+            minMatchScore,
+          }
+        });
+
+        if (error) throw error;
+        if (data?.matches && Array.isArray(data.matches)) {
+          aiMatches = data.matches;
         }
-      });
+      } catch (integrationError) {
+        console.warn('Falling back to heuristic matching:', integrationError);
+        toast({
+          title: "AI matching unavailable",
+          description: "Using local matching logic to score contacts.",
+        });
+      }
 
-      if (error) throw error;
+      const heuristicMatches = buildLocalMatches(persona, contacts);
+      const mergedMatches = mergeMatches(aiMatches, heuristicMatches, contacts);
+      const filteredMatches = mergedMatches.filter((match) => match.match_score >= minMatchScore);
 
-      setMatches(data.matches || []);
-      
-      toast({
-        title: "Matching Complete",
-        description: `Found ${data.matches.length} good matches above ${minMatchScore}% score.`,
-      });
+      const effectiveMatches = filteredMatches.length > 0
+        ? filteredMatches
+        : mergedMatches.slice(0, Math.min(10, mergedMatches.length));
 
-      setActiveTab("matches");
+      setMatches(effectiveMatches);
+
+      if (filteredMatches.length > 0) {
+        toast({
+          title: "Matching Complete",
+          description: `Found ${filteredMatches.length} contacts above ${minMatchScore}% score.`,
+        });
+        setActiveTab("matches");
+      } else if (mergedMatches.length > 0) {
+        toast({
+          title: "Showing top matches",
+          description: "No contacts reached the minimum score, so we listed the best available candidates.",
+        });
+        setActiveTab("matches");
+      } else {
+        toast({
+          title: "No matches at this threshold",
+          description: "Try lowering the minimum score or enrich your contact data.",
+          variant: "destructive",
+        });
+      }
     } catch (error: any) {
       toast({
         title: "Matching Failed",
-        description: error.message,
+        description: error.message || "Unable to match contacts right now.",
         variant: "destructive",
       });
     } finally {
@@ -411,6 +773,15 @@ const SurveyAutomation = () => {
       return;
     }
 
+    if (!projectId) {
+      toast({
+        title: "No Active Project",
+        description: "Select a project before generating survey questions.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setGeneratingQuestions(true);
     try {
       const { data, error } = await supabase.functions.invoke('generate-survey-questions', {
@@ -457,6 +828,15 @@ const SurveyAutomation = () => {
       toast({
         title: "No Questions",
         description: "Please generate survey questions first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!projectId) {
+      toast({
+        title: "No Active Project",
+        description: "We couldn't determine which project to associate with this survey.",
         variant: "destructive",
       });
       return;
@@ -686,6 +1066,19 @@ const SurveyAutomation = () => {
                           <Badge variant="outline" className="mt-1">{contact.age_range}</Badge>
                         )}
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteContact(contact.id)}
+                        disabled={deletingContactId === contact.id}
+                        title="Delete contact"
+                      >
+                        {deletingContactId === contact.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        )}
+                      </Button>
                     </div>
                   ))}
                   {contacts.length === 0 && (
@@ -708,16 +1101,22 @@ const SurveyAutomation = () => {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <Label>Select Persona</Label>
-                  <Select value={selectedPersonaId} onValueChange={setSelectedPersonaId}>
+                    <Select value={selectedPersonaId} onValueChange={setSelectedPersonaId}>
                     <SelectTrigger>
                       <SelectValue placeholder="Choose a persona to match" />
                     </SelectTrigger>
                     <SelectContent>
-                      {personas.map((persona) => (
-                        <SelectItem key={persona.id} value={persona.id}>
-                          {persona.name} ({persona.age_range})
+                      {personas.length > 0 ? (
+                        personas.map((persona) => (
+                          <SelectItem key={persona.id} value={persona.id}>
+                            {persona.name} ({persona.age_range})
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="no-personas" disabled>
+                          No personas found. Generate personas in the AI Marketing Studio.
                         </SelectItem>
-                      ))}
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
