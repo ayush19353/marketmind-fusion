@@ -507,6 +507,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          external_form_url: string | null
           id: string
           persona_id: string | null
           project_id: string
@@ -518,6 +519,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          external_form_url?: string | null
           id?: string
           persona_id?: string | null
           project_id: string
@@ -529,6 +531,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          external_form_url?: string | null
           id?: string
           persona_id?: string | null
           project_id?: string

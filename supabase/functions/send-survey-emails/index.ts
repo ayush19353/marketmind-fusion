@@ -43,10 +43,18 @@ serve(async (req) => {
     for (const match of matches) {
       try {
         const contact = match.contact;
-        // Get the request origin to construct the correct URL
-        const origin = req.headers.get('origin') || req.headers.get('referer') || 'https://b539ff29-d694-46a0-8de8-b2a5a9129fa4.lovable.app';
-        const baseUrl = origin.replace(/\/$/, '');
-        const surveyUrl = `${baseUrl}/survey/response?survey=${surveyId}&contact=${contact.id}`;
+        
+        // Use external form URL if provided, otherwise use internal survey page
+        let surveyUrl;
+        if (survey.external_form_url) {
+          // Use the external form URL (e.g., Google Forms)
+          surveyUrl = survey.external_form_url;
+        } else {
+          // Get the request origin to construct the correct URL for internal form
+          const origin = req.headers.get('origin') || req.headers.get('referer') || 'https://b539ff29-d694-46a0-8de8-b2a5a9129fa4.lovable.app';
+          const baseUrl = origin.replace(/\/$/, '');
+          surveyUrl = `${baseUrl}/survey/response?survey=${surveyId}&contact=${contact.id}`;
+        }
 
         // Create email HTML
         const emailHtml = `

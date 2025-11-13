@@ -43,6 +43,7 @@ const SurveyAutomation = () => {
   // Survey state
   const [surveyTitle, setSurveyTitle] = useState("");
   const [surveyDescription, setSurveyDescription] = useState("");
+  const [externalFormUrl, setExternalFormUrl] = useState("");
   const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] = useState("");
@@ -469,6 +470,7 @@ const SurveyAutomation = () => {
           persona_id: selectedPersonaId,
           title: surveyTitle,
           description: surveyDescription,
+          external_form_url: externalFormUrl || null,
           questions: { questions: surveyQuestions },
           status: 'pending',
         })
@@ -819,6 +821,18 @@ const SurveyAutomation = () => {
                     placeholder="Brief description that will appear in the email"
                     rows={3}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>External Form URL (Optional)</Label>
+                  <Input
+                    value={externalFormUrl}
+                    onChange={(e) => setExternalFormUrl(e.target.value)}
+                    placeholder="e.g., https://forms.google.com/your-form-id"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to use the built-in survey form. Provide a Google Form or other external form URL to use instead.
+                  </p>
                 </div>
               </CardContent>
             </Card>
