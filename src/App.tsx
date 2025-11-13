@@ -14,6 +14,7 @@ import Analysis from "./pages/Analysis";
 import Report from "./pages/Report";
 import MarketingStudio from "./pages/MarketingStudio";
 import ABTestPredictor from "./pages/ABTestPredictor";
+import SurveyAutomation from "./pages/SurveyAutomation";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -38,6 +39,7 @@ const App = () => (
             <Route path="/analysis" element={<ProtectedRoute><Analysis /></ProtectedRoute>} />
             <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
             <Route path="/ab-test-predictor" element={<ProtectedRoute><ABTestPredictor /></ProtectedRoute>} />
+            <Route path="/survey-automation" element={<ProtectedRoute><SurveyAutomation /></ProtectedRoute>} />
           <Route path="/marketing-studio" element={<ProtectedRoute><MarketingStudio /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

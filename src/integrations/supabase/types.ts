@@ -144,6 +144,51 @@ export type Database = {
           },
         ]
       }
+      contacts: {
+        Row: {
+          age_range: string | null
+          behavior_data: Json | null
+          created_at: string
+          demographics: Json | null
+          email: string
+          first_name: string
+          id: string
+          interests: Json | null
+          last_name: string | null
+          notes: string | null
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          age_range?: string | null
+          behavior_data?: Json | null
+          created_at?: string
+          demographics?: Json | null
+          email: string
+          first_name: string
+          id?: string
+          interests?: Json | null
+          last_name?: string | null
+          notes?: string | null
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          age_range?: string | null
+          behavior_data?: Json | null
+          created_at?: string
+          demographics?: Json | null
+          email?: string
+          first_name?: string
+          id?: string
+          interests?: Json | null
+          last_name?: string | null
+          notes?: string | null
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customer_personas: {
         Row: {
           age_range: string
@@ -371,6 +416,84 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      survey_sends: {
+        Row: {
+          completed_at: string | null
+          contact_id: string
+          created_at: string
+          id: string
+          match_reasons: Json | null
+          match_score: number
+          opened_at: string | null
+          persona_id: string | null
+          response_data: Json | null
+          sent_at: string
+          survey_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          contact_id: string
+          created_at?: string
+          id?: string
+          match_reasons?: Json | null
+          match_score: number
+          opened_at?: string | null
+          persona_id?: string | null
+          response_data?: Json | null
+          sent_at?: string
+          survey_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          contact_id?: string
+          created_at?: string
+          id?: string
+          match_reasons?: Json | null
+          match_score?: number
+          opened_at?: string | null
+          persona_id?: string | null
+          response_data?: Json | null
+          sent_at?: string
+          survey_id?: string
+        }
+        Relationships: []
+      }
+      surveys: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          persona_id: string | null
+          project_id: string
+          questions: Json
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          persona_id?: string | null
+          project_id: string
+          questions: Json
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          persona_id?: string | null
+          project_id?: string
+          questions?: Json
+          status?: string
+          title?: string
+          updated_at?: string
         }
         Relationships: []
       }

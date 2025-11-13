@@ -1,0 +1,171 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.81.1";
+import { Resend } from "https://esm.sh/resend@4.0.0";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { surveyId, matches } = await req.json();
+    const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY is not configured');
+    }
+
+    const resend = new Resend(RESEND_API_KEY);
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+
+    console.log(`Sending surveys to ${matches.length} contacts`);
+
+    // Fetch survey details
+    const { data: survey, error: surveyError } = await supabase
+      .from('surveys')
+      .select('*')
+      .eq('id', surveyId)
+      .single();
+
+    if (surveyError) throw surveyError;
+
+    const results = [];
+    const errors = [];
+
+    for (const match of matches) {
+      try {
+        const contact = match.contact;
+        const surveyUrl = `${SUPABASE_URL}/survey/${surveyId}/response?contact=${contact.id}`;
+
+        // Create email HTML
+        const emailHtml = `
+          <!DOCTYPE html>
+          <html>
+            <head>
+              <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+                .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
+                .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+                .match-info { background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0; }
+                .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <div class="header">
+                  <h1>${survey.title}</h1>
+                </div>
+                <div class="content">
+                  <p>Hi ${contact.first_name},</p>
+                  
+                  <p>${survey.description || 'We would love to hear your feedback!'}</p>
+                  
+                  <div class="match-info">
+                    <strong>Why you were selected:</strong>
+                    <ul>
+                      ${match.reasons.map((reason: string) => `<li>${reason}</li>`).join('')}
+                    </ul>
+                    <p><em>Match score: ${match.match_score}%</em></p>
+                  </div>
+                  
+                  <p>Your insights are valuable and will help shape future decisions. This survey takes approximately 5-10 minutes to complete.</p>
+                  
+                  <center>
+                    <a href="${surveyUrl}" class="button">Take Survey Now</a>
+                  </center>
+                  
+                  <p style="margin-top: 30px; font-size: 14px; color: #666;">
+                    If the button doesn't work, copy and paste this link into your browser:<br>
+                    <a href="${surveyUrl}">${surveyUrl}</a>
+                  </p>
+                  
+                  <p style="margin-top: 20px;">Thank you for your time!</p>
+                </div>
+                <div class="footer">
+                  <p>This email was sent because you match the profile for our research study.</p>
+                  <p>If you believe this was sent in error, please disregard this message.</p>
+                </div>
+              </div>
+            </body>
+          </html>
+        `;
+
+        // Send email
+        const emailResponse = await resend.emails.send({
+          from: 'Research Survey <onboarding@resend.dev>',
+          to: [contact.email],
+          subject: survey.title,
+          html: emailHtml,
+        });
+
+        console.log(`Email sent to ${contact.email}:`, emailResponse);
+
+        // Record the send in database
+        const { error: insertError } = await supabase
+          .from('survey_sends')
+          .insert({
+            survey_id: surveyId,
+            contact_id: contact.id,
+            persona_id: match.persona_id || null,
+            match_score: match.match_score,
+            match_reasons: match.reasons,
+          });
+
+        if (insertError) {
+          console.error('Error recording survey send:', insertError);
+        }
+
+        results.push({
+          contact_id: contact.id,
+          email: contact.email,
+          status: 'sent',
+          email_response: emailResponse,
+        });
+
+      } catch (error) {
+        console.error(`Error sending to ${match.contact.email}:`, error);
+        errors.push({
+          contact_id: match.contact.id,
+          email: match.contact.email,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
+    // Update survey status
+    await supabase
+      .from('surveys')
+      .update({ status: 'active' })
+      .eq('id', surveyId);
+
+    console.log(`Successfully sent ${results.length} emails, ${errors.length} errors`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        sent: results.length,
+        failed: errors.length,
+        results,
+        errors,
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    console.error('Error in send-survey-emails:', error);
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});

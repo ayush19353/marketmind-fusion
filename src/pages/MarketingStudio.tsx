@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Home, Sparkles, Users, TrendingUp, Image as ImageIcon, Loader2, Copy, Download } from "lucide-react";
+import { Home, Sparkles, Users, TrendingUp, Image as ImageIcon, Loader2, Copy, Download, Mail } from "lucide-react";
 
 const MarketingStudio = () => {
   const location = useLocation();
@@ -682,6 +682,33 @@ const MarketingStudio = () => {
               >
                 <TrendingUp className="mr-2 h-4 w-4" />
                 Open A/B Test Predictor
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Survey Automation Section */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Mail className="h-5 w-5 text-primary" />
+                Survey Automation
+              </CardTitle>
+              <CardDescription>
+                Match personas with contacts and automatically send targeted surveys
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Use AI to match your customer personas with real contacts from your database, then automatically send personalized surveys to the most relevant participants. Perfect for gathering targeted feedback and validating your research hypotheses.
+              </p>
+              <Button 
+                onClick={() => navigate('/survey-automation', { 
+                  state: { projectId, productName } 
+                })}
+                className="w-full"
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Open Survey Automation
               </Button>
             </CardContent>
           </Card>
