@@ -9,10 +9,10 @@ import { CheckCircle } from "lucide-react";
 const SurveyResponseHandler = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
   const [submitted, setSubmitted] = useState(false);
   const [textAnswer, setTextAnswer] = useState("");
   const [question, setQuestion] = useState<any>(null);
+  const [showTextForm, setShowTextForm] = useState(false);
 
   const surveyId = searchParams.get("survey");
   const contactId = searchParams.get("contact");
@@ -50,10 +50,9 @@ const SurveyResponseHandler = () => {
             answer: answer,
           });
           setSubmitted(true);
-          setLoading(false);
         } else {
           // Show text input form
-          setLoading(false);
+          setShowTextForm(true);
         }
       }
     };
@@ -64,7 +63,6 @@ const SurveyResponseHandler = () => {
   const handleTextSubmit = async () => {
     if (!textAnswer.trim()) return;
 
-    setLoading(true);
     await supabase.from("survey_responses").insert({
       survey_id: surveyId,
       contact_id: contactId,
@@ -73,29 +71,17 @@ const SurveyResponseHandler = () => {
       answer: textAnswer,
     });
     setSubmitted(true);
-    setLoading(false);
+    setShowTextForm(false);
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center">
-            <p>Processing your response...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50">
-        <Card className="w-full max-w-md">
-          <CardContent className="p-8 text-center">
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold mb-2">Thank You!</h1>
-            <p className="text-muted-foreground">Your response has been recorded.</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
+        <Card className="w-full max-w-md border-0 shadow-lg">
+          <CardContent className="p-12 text-center">
+            <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-6" />
+            <h1 className="text-3xl font-bold mb-3">Thank You!</h1>
+            <p className="text-lg text-muted-foreground">Your response has been recorded successfully.</p>
           </CardContent>
         </Card>
       </div>
@@ -103,25 +89,29 @@ const SurveyResponseHandler = () => {
   }
 
   // Show text input form
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
-      <Card className="w-full max-w-md">
-        <CardContent className="p-8">
-          <h2 className="text-xl font-bold mb-4">{question?.text}</h2>
-          <Textarea
-            value={textAnswer}
-            onChange={(e) => setTextAnswer(e.target.value)}
-            placeholder="Type your answer here..."
-            className="mb-4"
-            rows={5}
-          />
-          <Button onClick={handleTextSubmit} disabled={!textAnswer.trim()} className="w-full">
-            Submit Answer
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  if (showTextForm && question) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5 p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="p-8">
+            <h2 className="text-xl font-bold mb-4">{question.text}</h2>
+            <Textarea
+              value={textAnswer}
+              onChange={(e) => setTextAnswer(e.target.value)}
+              placeholder="Type your answer here..."
+              className="mb-4"
+              rows={5}
+            />
+            <Button onClick={handleTextSubmit} disabled={!textAnswer.trim()} className="w-full">
+              Submit Answer
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return null;
 };
 
 export default SurveyResponseHandler;
