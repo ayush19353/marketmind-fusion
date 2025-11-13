@@ -43,9 +43,10 @@ serve(async (req) => {
     for (const match of matches) {
       try {
         const contact = match.contact;
-        // Use the app domain, not supabase URL
-        const appUrl = Deno.env.get('APP_URL') || 'https://b539ff29-d694-46a0-8de8-b2a5a9129fa4.lovableproject.com';
-        const surveyUrl = `${appUrl}/survey/response?survey=${surveyId}&contact=${contact.id}`;
+        // Get the request origin to construct the correct URL
+        const origin = req.headers.get('origin') || req.headers.get('referer') || 'https://b539ff29-d694-46a0-8de8-b2a5a9129fa4.lovable.app';
+        const baseUrl = origin.replace(/\/$/, '');
+        const surveyUrl = `${baseUrl}/survey/response?survey=${surveyId}&contact=${contact.id}`;
 
         // Create email HTML
         const emailHtml = `
