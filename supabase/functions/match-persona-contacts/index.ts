@@ -55,14 +55,19 @@ serve(async (req) => {
     // Use AI to score each contact against the persona
     const systemPrompt = `You are an expert at matching customer personas with real individuals based on demographic and psychographic data. 
 
-For each contact provided, analyze how well they match the target persona and return a match score (0-100) with specific reasons.
+IMPORTANT MATCHING GUIDELINES:
+- Prioritize interests, behaviors, and psychographic alignment over strict demographic matching
+- When demographic data is limited or missing, focus heavily on available interests and behaviors
+- Age differences of 5-10 years should not heavily penalize the score if interests align well
+- A strong interest match (e.g., both interested in fitness) should result in 60-80+ score even with some demographic differences
+- Only give low scores (below 50) when there are clear mismatches in interests or goals
 
 Return a JSON array with this structure:
 [
   {
     "contact_id": "uuid",
     "match_score": 85,
-    "reasons": ["Age range matches perfectly", "Demographics align with persona", "Interests overlap strongly"]
+    "reasons": ["Strong interest alignment in fitness", "Demographics partially align", "Behavior patterns match persona goals"]
   }
 ]`;
 
@@ -116,8 +121,17 @@ Score each contact's match with the persona (0-100) and explain why.`;
     const content = data.choices[0].message.content;
     const parsedResult = JSON.parse(content);
     
-    // Handle both array format and object with matches key
-    const matchResults = Array.isArray(parsedResult) ? parsedResult : (parsedResult.matches || []);
+    // Handle multiple response formats: array, or object with matches/results/contacts key
+    let matchResults = [];
+    if (Array.isArray(parsedResult)) {
+      matchResults = parsedResult;
+    } else if (parsedResult.matches && Array.isArray(parsedResult.matches)) {
+      matchResults = parsedResult.matches;
+    } else if (parsedResult.results && Array.isArray(parsedResult.results)) {
+      matchResults = parsedResult.results;
+    } else if (parsedResult.contacts && Array.isArray(parsedResult.contacts)) {
+      matchResults = parsedResult.contacts;
+    }
     console.log(`Parsed ${matchResults.length} match results`);
 
     // Filter matches above minimum score
