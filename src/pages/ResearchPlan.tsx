@@ -1,24 +1,114 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Home, Download, Users, Calendar, DollarSign, Target, TrendingUp } from "lucide-react";
 import { ModeToggle } from "@/components/ModeToggle";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type Mode = "guided" | "expert";
 
 const ResearchPlan = () => {
   const [mode, setMode] = useState<Mode>("guided");
   const navigate = useNavigate();
+  const location = useLocation();
+  const { toast } = useToast();
 
-  const planData = {
+  const projectId = location.state?.projectId;
+  const productName = location.state?.productName || "Your product";
+  const productDescription = location.state?.productDescription || "";
+  const hypotheses = location.state?.hypotheses || [];
+
+  const [plan, setPlan] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!projectId || !hypotheses.length) {
+      toast({
+        title: "Error",
+        description: "Missing project data. Please start from the beginning.",
+        variant: "destructive",
+      });
+      navigate("/product-input");
+      return;
+    }
+
+    generateResearchPlan();
+  }, [projectId]);
+
+  const generateResearchPlan = async () => {
+    try {
+      setIsLoading(true);
+
+      // Call generate-research-plan edge function
+      const { data, error } = await supabase.functions.invoke(
+        'generate-research-plan',
+        {
+          body: {
+            productName,
+            productDescription,
+            hypotheses,
+            mode
+          }
+        }
+      );
+
+      if (error) throw error;
+
+      console.log('Generated plan:', data);
+
+      const generatedPlan = data.plan;
+
+      // Save plan to database
+      const { data: savedPlan, error: saveError } = await supabase
+        .from('research_plans')
+        .insert({
+          project_id: projectId,
+          target_audience: generatedPlan.targetAudience || {},
+          sample: generatedPlan.sample || {},
+          methodology: generatedPlan.methodology || {},
+          timeline: generatedPlan.timeline || {},
+          budget: generatedPlan.budget || {}
+        })
+        .select()
+        .single();
+
+      if (saveError) throw saveError;
+
+      setPlan(generatedPlan);
+
+      // Update project status
+      await supabase
+        .from('research_projects')
+        .update({ status: 'completed' })
+        .eq('id', projectId);
+
+      toast({
+        title: "Research plan complete!",
+        description: "AI has created your comprehensive research strategy.",
+      });
+
+    } catch (error: any) {
+      console.error('Error generating plan:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate research plan. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const planData = plan || {
     targetAudience: {
       title: "Target Audience",
-      demographics: "Ages 18-30, Urban areas, Health-conscious consumers",
-      psychographics: "Value wellness, sustainability, and authenticity",
-      size: "2,000,000+ potential consumers",
+      demographics: "Loading...",
+      psychographics: "Loading...",
+      size: "Loading...",
     },
     sample: {
       size: 385,
@@ -29,29 +119,15 @@ const ResearchPlan = () => {
     },
     methodology: {
       primary: "Mixed-methods approach",
-      techniques: [
-        { name: "Online Survey", plain: "Quick opinion check", responses: 300 },
-        { name: "Focus Groups", plain: "Group reactions", sessions: 4 },
-        { name: "In-depth Interviews", plain: "Deep interviews", interviews: 15 },
-      ],
+      techniques: [],
     },
     timeline: {
       total: "3-4 weeks",
-      phases: [
-        { phase: "Setup & Recruitment", duration: "3-5 days" },
-        { phase: "Data Collection", duration: "10-14 days" },
-        { phase: "Analysis", duration: "5-7 days" },
-        { phase: "Report Generation", duration: "2-3 days" },
-      ],
+      phases: [],
     },
     budget: {
       estimated: "$3,500 - $5,000",
-      breakdown: [
-        { item: "Participant Incentives", cost: "$1,200 - $1,800" },
-        { item: "Platform & Tools", cost: "$800 - $1,200" },
-        { item: "Data Collection", cost: "$1,000 - $1,500" },
-        { item: "Analysis & Reporting", cost: "$500 - $500" },
-      ],
+      breakdown: [],
     },
   };
 
@@ -96,37 +172,54 @@ const ResearchPlan = () => {
             </CardHeader>
           </Card>
 
-          {/* Target Audience */}
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-primary" />
-                {planData.targetAudience.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {mode === "guided" ? "Who We'll Talk To" : "Demographics"}
-                  </p>
-                  <p className="text-base text-foreground">{planData.targetAudience.demographics}</p>
+          {/* Loading State */}
+          {isLoading && (
+            <Card className="shadow-soft">
+              <CardContent className="pt-6">
+                <div className="text-center py-12">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-muted-foreground">AI is generating your research plan...</p>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {mode === "guided" ? "What They Care About" : "Psychographics"}
-                  </p>
-                  <p className="text-base text-foreground">{planData.targetAudience.psychographics}</p>
-                </div>
-              </div>
-              <div className="pt-2">
-                <Badge variant="secondary" className="text-base px-4 py-2">
-                  <Users className="h-4 w-4 mr-2" />
-                  {planData.targetAudience.size} market size
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Plan Content */}
+          {!isLoading && plan && (
+            <>
+              {/* Target Audience */}
+              <Card className="shadow-soft">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5 text-primary" />
+                    {planData.targetAudience.title || "Target Audience"}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {mode === "guided" ? "Who We'll Talk To" : "Demographics"}
+                      </p>
+                      <p className="text-base text-foreground">{planData.targetAudience.demographics}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {mode === "guided" ? "What They Care About" : "Psychographics"}
+                      </p>
+                      <p className="text-base text-foreground">{planData.targetAudience.psychographics}</p>
+                    </div>
+                  </div>
+                  {planData.targetAudience.size && (
+                    <div className="pt-2">
+                      <Badge variant="secondary" className="text-base px-4 py-2">
+                        <Users className="h-4 w-4 mr-2" />
+                        {planData.targetAudience.size} market size
+                      </Badge>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
           {/* Sample Size */}
           <Card className="shadow-soft">
@@ -163,111 +256,121 @@ const ResearchPlan = () => {
             </CardContent>
           </Card>
 
-          {/* Methodology */}
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle>
-                {mode === "guided" ? "How We'll Collect Information" : "Research Methodology"}
-              </CardTitle>
-              <CardDescription className="text-base">
-                {planData.methodology.primary}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {planData.methodology.techniques.map((technique, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border/50"
-                >
-                  <div className="space-y-1">
-                    <p className="font-medium text-foreground">
-                      {mode === "guided" ? technique.plain : technique.name}
-                    </p>
-                    {mode === "expert" && (
-                      <p className="text-sm text-muted-foreground">({technique.plain})</p>
-                    )}
-                  </div>
-                  <Badge variant="outline" className="text-base px-4 py-2">
-                    {technique.responses
-                      ? `${technique.responses} responses`
-                      : technique.sessions
-                      ? `${technique.sessions} sessions`
-                      : `${technique.interviews} interviews`}
-                  </Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+              {/* Methodology */}
+              {planData.methodology?.techniques && planData.methodology.techniques.length > 0 && (
+                <Card className="shadow-soft">
+                  <CardHeader>
+                    <CardTitle>
+                      {mode === "guided" ? "How We'll Collect Information" : "Research Methodology"}
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      {planData.methodology.primary}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {planData.methodology.techniques.map((technique: any, index: number) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border/50"
+                      >
+                        <div className="space-y-1">
+                          <p className="font-medium text-foreground">
+                            {mode === "guided" ? technique.plain : technique.name}
+                          </p>
+                          {mode === "expert" && technique.plain && (
+                            <p className="text-sm text-muted-foreground">({technique.plain})</p>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="text-base px-4 py-2">
+                          {technique.responses
+                            ? `${technique.responses} responses`
+                            : technique.sessions
+                            ? `${technique.sessions} sessions`
+                            : `${technique.interviews} interviews`}
+                        </Badge>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
-          {/* Timeline */}
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-secondary" />
-                Timeline
-              </CardTitle>
-              <CardDescription className="text-base">
-                Estimated duration: {planData.timeline.total}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {planData.timeline.phases.map((phase, index) => (
-                <div key={index} className="flex items-center justify-between py-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center text-white text-sm font-bold">
-                      {index + 1}
-                    </div>
-                    <p className="font-medium text-foreground">{phase.phase}</p>
-                  </div>
-                  <Badge variant="secondary">{phase.duration}</Badge>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+              {/* Timeline */}
+              {planData.timeline?.phases && planData.timeline.phases.length > 0 && (
+                <Card className="shadow-soft">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5 text-secondary" />
+                      Timeline
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Estimated duration: {planData.timeline.total}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {planData.timeline.phases.map((phase: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between py-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center text-white text-sm font-bold">
+                            {index + 1}
+                          </div>
+                          <p className="font-medium text-foreground">{phase.phase}</p>
+                        </div>
+                        <Badge variant="secondary">{phase.duration}</Badge>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
-          {/* Budget */}
-          <Card className="shadow-soft">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5 text-accent" />
-                Estimated Budget
-              </CardTitle>
-              <CardDescription className="text-base">
-                Total: {planData.budget.estimated}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {planData.budget.breakdown.map((item, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
-                >
-                  <p className="text-foreground">{item.item}</p>
-                  <p className="font-medium text-foreground">{item.cost}</p>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+              {/* Budget */}
+              {planData.budget?.breakdown && planData.budget.breakdown.length > 0 && (
+                <Card className="shadow-soft">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <DollarSign className="h-5 w-5 text-accent" />
+                      Estimated Budget
+                    </CardTitle>
+                    <CardDescription className="text-base">
+                      Total: {planData.budget.estimated}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {planData.budget.breakdown.map((item: any, index: number) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between py-2 border-b border-border/50 last:border-0"
+                      >
+                        <p className="text-foreground">{item.item}</p>
+                        <p className="font-medium text-foreground">{item.cost}</p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
 
           {/* Action Buttons */}
-          <div className="flex gap-4">
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => navigate("/hypothesis")}
-            >
-              Back to Hypotheses
-            </Button>
-            <Button
-              variant="hero"
-              size="lg"
-              className="flex-1 group"
-              onClick={() => navigate("/dashboard")}
-            >
-              Approve & Continue
-              <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-            </Button>
-          </div>
+          {!isLoading && plan && (
+            <div className="flex gap-4">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => navigate("/hypothesis", { state: { projectId } })}
+              >
+                Back to Hypotheses
+              </Button>
+              <Button
+                variant="hero"
+                size="lg"
+                className="flex-1 group"
+                onClick={() => navigate("/dashboard")}
+              >
+                Complete & Return to Dashboard
+                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </div>
+          )}
         </div>
       </main>
     </div>

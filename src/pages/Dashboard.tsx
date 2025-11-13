@@ -4,6 +4,7 @@ import { ModeToggle } from "@/components/ModeToggle";
 import { Button } from "@/components/ui/button";
 import { Home, ChevronRight, LogOut } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -23,6 +24,8 @@ const steps = [
 const Dashboard = () => {
   const [mode, setMode] = useState<Mode>("guided");
   const [userEmail, setUserEmail] = useState<string>("");
+  const [projects, setProjects] = useState<any[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -34,6 +37,27 @@ const Dashboard = () => {
       }
     };
     fetchUser();
+  }, []);
+
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('research_projects')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        setProjects(data || []);
+      } catch (error: any) {
+        console.error('Error fetching projects:', error);
+      } finally {
+        setIsLoadingProjects(false);
+      }
+    };
+
+    fetchProjects();
   }, []);
 
   const handleLogout = async () => {
@@ -96,6 +120,72 @@ const Dashboard = () => {
               </Button>
             </CardContent>
           </Card>
+
+          {/* Recent Projects */}
+          {!isLoadingProjects && projects.length > 0 && (
+            <div>
+              <h2 className="text-2xl font-bold mb-6 text-foreground">Recent Projects</h2>
+              <div className="grid md:grid-cols-2 gap-4">
+                {projects.slice(0, 4).map((project) => (
+                  <Card
+                    key={project.id}
+                    className="hover:shadow-medium transition-all duration-300 cursor-pointer"
+                    onClick={() => {
+                      // Navigate based on project status
+                      if (project.status === 'draft') {
+                        navigate("/product-input");
+                      } else if (project.status === 'in_progress') {
+                        navigate("/hypothesis", {
+                          state: {
+                            projectId: project.id,
+                            productName: project.product_name,
+                            productDescription: project.product_description,
+                            mode: project.mode
+                          }
+                        });
+                      } else {
+                        navigate("/research-plan", {
+                          state: {
+                            projectId: project.id,
+                            productName: project.product_name,
+                            mode: project.mode
+                          }
+                        });
+                      }
+                    }}
+                  >
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{project.product_name}</CardTitle>
+                        <Badge variant={
+                          project.status === 'completed' ? 'default' :
+                          project.status === 'in_progress' ? 'secondary' :
+                          'outline'
+                        }>
+                          {project.status.replace('_', ' ')}
+                        </Badge>
+                      </div>
+                      <CardDescription className="line-clamp-2">
+                        {project.product_description}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-xs text-muted-foreground">
+                        Created {new Date(project.created_at).toLocaleDateString()}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {isLoadingProjects && (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-4 text-muted-foreground">Loading projects...</p>
+            </div>
+          )}
 
           {/* Research Workflow */}
           <div>

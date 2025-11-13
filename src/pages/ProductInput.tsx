@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowRight, Home, Lightbulb, Sparkles } from "lucide-react";
 import { ModeToggle } from "@/components/ModeToggle";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 type Mode = "guided" | "expert";
 
@@ -16,7 +17,7 @@ const ProductInput = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     if (!product.trim()) {
       toast({
         title: "Product description required",
@@ -27,17 +28,67 @@ const ProductInput = () => {
     }
 
     setIsAnalyzing(true);
-    
-    // Simulate AI analysis
-    setTimeout(() => {
-      setIsAnalyzing(false);
+
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Call analyze-product edge function
+      const { data: analysisData, error: analysisError } = await supabase.functions.invoke(
+        'analyze-product',
+        { body: { productDescription: product } }
+      );
+
+      if (analysisError) throw analysisError;
+
+      console.log('Analysis result:', analysisData);
+
+      // Extract product name from analysis or use first part of description
+      const productName = analysisData.analysis?.suggestedName || 
+        product.split(/[.!?]/)[0].substring(0, 100) || 
+        "Research Project";
+
+      // Save project to database
+      const { data: projectData, error: projectError } = await supabase
+        .from('research_projects')
+        .insert({
+          user_id: user.id,
+          product_name: productName,
+          product_description: product,
+          mode: mode,
+          status: 'in_progress'
+        })
+        .select()
+        .single();
+
+      if (projectError) throw projectError;
+
       toast({
         title: "Analysis complete!",
-        description: "AI has identified your product category and market context.",
+        description: "AI has analyzed your product. Generating hypotheses...",
       });
-      // Navigate to hypothesis generation with product data
-      navigate("/hypothesis", { state: { product } });
-    }, 2000);
+
+      // Navigate to hypothesis generation with project data
+      navigate("/hypothesis", { 
+        state: { 
+          projectId: projectData.id,
+          productName: productName,
+          productDescription: product,
+          mode: mode 
+        } 
+      });
+
+    } catch (error: any) {
+      console.error('Error analyzing product:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to analyze product. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
