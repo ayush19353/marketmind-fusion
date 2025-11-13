@@ -477,19 +477,7 @@ const SurveyAutomation = () => {
 
       if (surveyError) throw surveyError;
 
-      // Generate public form URL
-      const publicFormUrl = `${window.location.origin}/survey/${survey.id}`;
-      setExternalFormUrl(publicFormUrl);
-
-      // Update survey with the public URL
-      const { error: updateError } = await supabase
-        .from('surveys')
-        .update({ external_form_url: publicFormUrl })
-        .eq('id', survey.id);
-
-      if (updateError) throw updateError;
-
-      // Send emails
+      // Send emails with questions embedded
       const { data, error } = await supabase.functions.invoke('send-survey-emails', {
         body: {
           surveyId: survey.id,

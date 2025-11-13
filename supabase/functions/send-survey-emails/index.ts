@@ -44,17 +44,53 @@ serve(async (req) => {
       try {
         const contact = match.contact;
         
-        // Use external form URL if provided, otherwise use internal survey page
-        let surveyUrl;
-        if (survey.external_form_url) {
-          // Use the external form URL (e.g., Google Forms)
-          surveyUrl = survey.external_form_url;
-        } else {
-          // Get the request origin to construct the correct URL for internal form
-          const origin = req.headers.get('origin') || req.headers.get('referer') || 'https://b539ff29-d694-46a0-8de8-b2a5a9129fa4.lovable.app';
-          const baseUrl = origin.replace(/\/$/, '');
-          surveyUrl = `${baseUrl}/survey/response?survey=${surveyId}&contact=${contact.id}`;
-        }
+        // Get the request origin to construct response URLs
+        const origin = req.headers.get('origin') || req.headers.get('referer') || 'https://b539ff29-d694-46a0-8de8-b2a5a9129fa4.lovable.app';
+        const baseUrl = origin.replace(/\/$/, '');
+
+        // Parse questions from survey
+        const questions = typeof survey.questions === 'string' 
+          ? JSON.parse(survey.questions) 
+          : survey.questions;
+
+        // Generate question HTML
+        const questionsHtml = questions.map((q: any, idx: number) => {
+          if (q.type === 'multiple_choice') {
+            const optionsHtml = q.options.map((option: string) => 
+              `<a href="${baseUrl}/survey/respond?survey=${surveyId}&contact=${contact.id}&question=${idx}&answer=${encodeURIComponent(option)}" 
+                 style="display: inline-block; margin: 5px 10px 5px 0; padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 5px;">
+                 ${option}
+              </a>`
+            ).join('');
+            return `
+              <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
+                <p style="font-weight: bold; margin-bottom: 10px;">${idx + 1}. ${q.text}${q.required ? ' *' : ''}</p>
+                ${optionsHtml}
+              </div>`;
+          } else if (q.type === 'rating') {
+            const ratingHtml = [1, 2, 3, 4, 5].map(rating => 
+              `<a href="${baseUrl}/survey/respond?survey=${surveyId}&contact=${contact.id}&question=${idx}&answer=${rating}" 
+                 style="display: inline-block; margin: 5px; padding: 10px 15px; background: #667eea; color: white; text-decoration: none; border-radius: 5px;">
+                 ${rating}
+              </a>`
+            ).join('');
+            return `
+              <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
+                <p style="font-weight: bold; margin-bottom: 10px;">${idx + 1}. ${q.text}${q.required ? ' *' : ''}</p>
+                <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Rate from 1 (lowest) to 5 (highest):</p>
+                ${ratingHtml}
+              </div>`;
+          } else {
+            return `
+              <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
+                <p style="font-weight: bold; margin-bottom: 10px;">${idx + 1}. ${q.text}${q.required ? ' *' : ''}</p>
+                <a href="${baseUrl}/survey/respond?survey=${surveyId}&contact=${contact.id}&question=${idx}" 
+                   style="display: inline-block; padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 5px;">
+                   Click to answer
+                </a>
+              </div>`;
+          }
+        }).join('');
 
         // Create email HTML
         const emailHtml = `
@@ -89,16 +125,9 @@ serve(async (req) => {
                     <p><em>Match score: ${match.match_score}%</em></p>
                   </div>
                   
-                  <p>Your insights are valuable and will help shape future decisions. This survey takes approximately 5-10 minutes to complete.</p>
+                  <p>Your insights are valuable and will help shape future decisions. Please answer the questions below by clicking on your preferred response:</p>
                   
-                  <center>
-                    <a href="${surveyUrl}" class="button">Take Survey Now</a>
-                  </center>
-                  
-                  <p style="margin-top: 30px; font-size: 14px; color: #666;">
-                    If the button doesn't work, copy and paste this link into your browser:<br>
-                    <a href="${surveyUrl}">${surveyUrl}</a>
-                  </p>
+                  ${questionsHtml}
                   
                   <p style="margin-top: 20px;">Thank you for your time!</p>
                 </div>
