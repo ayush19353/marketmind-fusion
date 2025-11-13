@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight, Home, Download, Users, Calendar, DollarSign, Target, TrendingUp } from "lucide-react";
+import { ArrowRight, Home, Download, Users, Calendar, DollarSign, Target, TrendingUp, Sparkles } from "lucide-react";
 import { ModeToggle } from "@/components/ModeToggle";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -359,6 +359,21 @@ const ResearchPlan = () => {
                 onClick={() => navigate("/hypothesis", { state: { projectId } })}
               >
                 Back to Hypotheses
+              </Button>
+              <Button
+                variant="secondary"
+                size="lg"
+                className="flex-1"
+                onClick={() => navigate("/marketing-studio", { 
+                  state: { 
+                    projectId,
+                    productName,
+                    productDescription
+                  }
+                })}
+              >
+                <Sparkles className="h-5 w-5 mr-2" />
+                Open AI Marketing Studio
               </Button>
               <Button
                 variant="hero"

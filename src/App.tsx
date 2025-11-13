@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import ProductInput from "./pages/ProductInput";
 import Hypothesis from "./pages/Hypothesis";
 import ResearchPlan from "./pages/ResearchPlan";
+import MarketingStudio from "./pages/MarketingStudio";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/product-input" element={<ProtectedRoute><ProductInput /></ProtectedRoute>} />
           <Route path="/hypothesis" element={<ProtectedRoute><Hypothesis /></ProtectedRoute>} />
           <Route path="/research-plan" element={<ProtectedRoute><ResearchPlan /></ProtectedRoute>} />
+          <Route path="/marketing-studio" element={<ProtectedRoute><MarketingStudio /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

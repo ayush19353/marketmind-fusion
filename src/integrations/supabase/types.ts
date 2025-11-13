@@ -14,6 +14,150 @@ export type Database = {
   }
   public: {
     Tables: {
+      campaign_images: {
+        Row: {
+          created_at: string
+          dimensions: string
+          id: string
+          image_data: string
+          image_type: string
+          project_id: string
+          prompt: string
+        }
+        Insert: {
+          created_at?: string
+          dimensions: string
+          id?: string
+          image_data: string
+          image_type: string
+          project_id: string
+          prompt: string
+        }
+        Update: {
+          created_at?: string
+          dimensions?: string
+          id?: string
+          image_data?: string
+          image_type?: string
+          project_id?: string
+          prompt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_images_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "research_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitive_analysis: {
+        Row: {
+          competitor_name: string
+          created_at: string
+          id: string
+          opportunities: string[]
+          positioning: string
+          project_id: string
+          recommendations: Json
+          strengths: string[]
+          threats: string[]
+          updated_at: string
+          weaknesses: string[]
+        }
+        Insert: {
+          competitor_name: string
+          created_at?: string
+          id?: string
+          opportunities: string[]
+          positioning: string
+          project_id: string
+          recommendations: Json
+          strengths: string[]
+          threats: string[]
+          updated_at?: string
+          weaknesses: string[]
+        }
+        Update: {
+          competitor_name?: string
+          created_at?: string
+          id?: string
+          opportunities?: string[]
+          positioning?: string
+          project_id?: string
+          recommendations?: Json
+          strengths?: string[]
+          threats?: string[]
+          updated_at?: string
+          weaknesses?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitive_analysis_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "research_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_personas: {
+        Row: {
+          age_range: string
+          avatar_url: string | null
+          buying_behavior: Json
+          created_at: string
+          demographics: Json
+          goals: string[]
+          id: string
+          name: string
+          pain_points: string[]
+          preferred_channels: string[]
+          project_id: string
+          psychographics: Json
+          updated_at: string
+        }
+        Insert: {
+          age_range: string
+          avatar_url?: string | null
+          buying_behavior: Json
+          created_at?: string
+          demographics: Json
+          goals: string[]
+          id?: string
+          name: string
+          pain_points: string[]
+          preferred_channels: string[]
+          project_id: string
+          psychographics: Json
+          updated_at?: string
+        }
+        Update: {
+          age_range?: string
+          avatar_url?: string | null
+          buying_behavior?: Json
+          created_at?: string
+          demographics?: Json
+          goals?: string[]
+          id?: string
+          name?: string
+          pain_points?: string[]
+          preferred_channels?: string[]
+          project_id?: string
+          psychographics?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_personas_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "research_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hypotheses: {
         Row: {
           confidence: number
@@ -54,6 +198,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "hypotheses_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "research_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_content: {
+        Row: {
+          body_text: string | null
+          content_type: string
+          created_at: string
+          cta: string | null
+          headline: string | null
+          id: string
+          metadata: Json | null
+          project_id: string
+          updated_at: string
+          variant_name: string
+        }
+        Insert: {
+          body_text?: string | null
+          content_type: string
+          created_at?: string
+          cta?: string | null
+          headline?: string | null
+          id?: string
+          metadata?: Json | null
+          project_id: string
+          updated_at?: string
+          variant_name: string
+        }
+        Update: {
+          body_text?: string | null
+          content_type?: string
+          created_at?: string
+          cta?: string | null
+          headline?: string | null
+          id?: string
+          metadata?: Json | null
+          project_id?: string
+          updated_at?: string
+          variant_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_content_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "research_projects"
