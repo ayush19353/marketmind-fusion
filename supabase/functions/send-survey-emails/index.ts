@@ -44,159 +44,81 @@ serve(async (req) => {
       try {
         const contact = match.contact;
         
-        // Get the request origin to construct response URLs
+        // Get the request origin to construct survey URL
         const origin = req.headers.get('origin') || req.headers.get('referer') || 'https://b539ff29-d694-46a0-8de8-b2a5a9129fa4.lovable.app';
         const baseUrl = origin.replace(/\/$/, '');
+        const surveyUrl = `${baseUrl}/survey/respond?survey=${surveyId}&contact=${contact.id}`;
 
-        // Parse questions from survey
-        const questions = typeof survey.questions === 'string' 
-          ? JSON.parse(survey.questions) 
-          : survey.questions;
-
-        // Generate question HTML
-        const questionsHtml = questions.map((q: any, idx: number) => {
-          if (q.type === 'multiple_choice') {
-            const optionsHtml = q.options.map((option: string) => 
-              `<a href="${baseUrl}/survey/respond?survey=${surveyId}&contact=${contact.id}&question=${idx}&answer=${encodeURIComponent(option)}" 
-                 style="display: inline-block; margin: 5px 10px 5px 0; padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 5px;">
-                 ${option}
-              </a>`
-            ).join('');
-            return `
-              <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
-                <p style="font-weight: bold; margin-bottom: 10px;">${idx + 1}. ${q.text}${q.required ? ' *' : ''}</p>
-                ${optionsHtml}
-              </div>`;
-          } else if (q.type === 'rating') {
-            const ratingHtml = [1, 2, 3, 4, 5].map(rating => 
-              `<a href="${baseUrl}/survey/respond?survey=${surveyId}&contact=${contact.id}&question=${idx}&answer=${rating}" 
-                 style="display: inline-block; margin: 5px; padding: 10px 15px; background: #667eea; color: white; text-decoration: none; border-radius: 5px;">
-                 ${rating}
-              </a>`
-            ).join('');
-            return `
-              <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
-                <p style="font-weight: bold; margin-bottom: 10px;">${idx + 1}. ${q.text}${q.required ? ' *' : ''}</p>
-                <p style="font-size: 12px; color: #666; margin-bottom: 10px;">Rate from 1 (lowest) to 5 (highest):</p>
-                ${ratingHtml}
-              </div>`;
-          } else {
-            return `
-              <div style="margin: 20px 0; padding: 15px; background: white; border-radius: 5px;">
-                <p style="font-weight: bold; margin-bottom: 10px;">${idx + 1}. ${q.text}${q.required ? ' *' : ''}</p>
-                <a href="${baseUrl}/survey/respond?survey=${surveyId}&contact=${contact.id}&question=${idx}" 
-                   style="display: inline-block; padding: 10px 20px; background: #667eea; color: white; text-decoration: none; border-radius: 5px;">
-                   Click to answer
-                </a>
-              </div>`;
-          }
-        }).join('');
-
-        // Create email HTML
         const emailHtml = `
           <!DOCTYPE html>
           <html>
-            <head>
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
-                .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }
-                .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-                .match-info { background: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0; }
-                .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="header">
-                  <h1>${survey.title}</h1>
-                </div>
-                <div class="content">
-                  <p>Hi ${contact.first_name},</p>
-                  
-                  <p>${survey.description || 'We would love to hear your feedback!'}</p>
-                  
-                  <div class="match-info">
-                    <strong>Why you were selected:</strong>
-                    <ul>
-                      ${match.reasons.map((reason: string) => `<li>${reason}</li>`).join('')}
-                    </ul>
-                    <p><em>Match score: ${match.match_score}%</em></p>
-                  </div>
-                  
-                  <p>Your insights are valuable and will help shape future decisions. Please answer the questions below by clicking on your preferred response:</p>
-                  
-                  ${questionsHtml}
-                  
-                  <p style="margin-top: 20px;">Thank you for your time!</p>
-                </div>
-                <div class="footer">
-                  <p>This email was sent because you match the profile for our research study.</p>
-                  <p>If you believe this was sent in error, please disregard this message.</p>
-                </div>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          </head>
+          <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0; background-color: #f5f5f5;">
+            <div style="max-width: 600px; margin: 20px auto; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px;">
+              <h1 style="color: white; text-align: center; margin-bottom: 20px;">
+                ${survey.title}
+              </h1>
+              ${survey.description ? `<p style="color: white; text-align: center; margin-bottom: 30px;">${survey.description}</p>` : ''}
+              <div style="background: #f9f9f9; padding: 30px; border-radius: 10px; text-align: center;">
+                <p style="margin-bottom: 20px; color: #333; font-size: 16px;">
+                  Hi ${contact.first_name},
+                </p>
+                <p style="margin-bottom: 30px; color: #333; font-size: 16px;">
+                  We'd love to hear your feedback! Click the button below to take our survey.
+                </p>
+                <a href="${surveyUrl}" 
+                   style="display: inline-block; padding: 15px 40px; background: #667eea; color: white; text-decoration: none; border-radius: 8px; font-size: 18px; font-weight: bold;">
+                  Take Survey
+                </a>
+                <p style="margin-top: 30px; color: #666; font-size: 14px;">
+                  Thank you for your time!
+                </p>
               </div>
-            </body>
+            </div>
+          </body>
           </html>
         `;
 
-        // Send email
-        const emailResponse = await resend.emails.send({
-          from: 'Research Survey <onboarding@resend.dev>',
+        const { data, error } = await resend.emails.send({
+          from: 'Survey <onboarding@resend.dev>',
           to: [contact.email],
           subject: survey.title,
           html: emailHtml,
         });
 
-        console.log(`Email sent to ${contact.email}:`, emailResponse);
+        if (error) {
+          console.error('Email send error for', contact.email, error);
+          errors.push({ contact: contact.email, error: error.message });
+        } else {
+          console.log('Survey sent to', contact.email);
+          results.push({ contact: contact.email, success: true });
 
-        // Record the send in database
-        const { error: insertError } = await supabase
-          .from('survey_sends')
-          .insert({
+          // Record survey send in database
+          await supabase.from('survey_sends').insert({
             survey_id: surveyId,
             contact_id: contact.id,
-            persona_id: match.persona_id || null,
-            match_score: match.match_score,
+            persona_id: match.personaId,
+            match_score: match.score,
             match_reasons: match.reasons,
+            sent_at: new Date().toISOString(),
           });
-
-        if (insertError) {
-          console.error('Error recording survey send:', insertError);
         }
-
-        results.push({
-          contact_id: contact.id,
-          email: contact.email,
-          status: 'sent',
-          email_response: emailResponse,
-        });
-
       } catch (error) {
-        console.error(`Error sending to ${match.contact.email}:`, error);
-        errors.push({
-          contact_id: match.contact.id,
-          email: match.contact.email,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
+        console.error('Error processing contact:', error);
+        errors.push({ contact: match.contact.email, error: error instanceof Error ? error.message : 'Unknown error' });
       }
     }
 
-    // Update survey status
-    await supabase
-      .from('surveys')
-      .update({ status: 'active' })
-      .eq('id', surveyId);
-
-    console.log(`Successfully sent ${results.length} emails, ${errors.length} errors`);
-
     return new Response(
-      JSON.stringify({
-        success: true,
-        sent: results.length,
-        failed: errors.length,
-        results,
+      JSON.stringify({ 
+        success: true, 
+        results, 
         errors,
+        totalSent: results.length,
+        totalErrors: errors.length 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
