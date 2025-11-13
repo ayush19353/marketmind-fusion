@@ -10,8 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, UserPlus, Users, Send, Loader2, Mail, Target, TrendingUp, Upload, FileUp } from "lucide-react";
+import { ArrowLeft, UserPlus, Users, Send, Loader2, Mail, Target, TrendingUp, Upload, FileUp, BarChart3, Clock, MessageSquare } from "lucide-react";
 import Papa from "papaparse";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 const SurveyAutomation = () => {
   const navigate = useNavigate();
@@ -46,13 +47,144 @@ const SurveyAutomation = () => {
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] = useState("");
   const [minMatchScore, setMinMatchScore] = useState(70);
+  
+  // Results state
+  const [surveyResults, setSurveyResults] = useState<any>(null);
+  const [sentimentAnalysis, setSentimentAnalysis] = useState<any>(null);
+  const [loadingResults, setLoadingResults] = useState(false);
+  const [selectedSurveyId, setSelectedSurveyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (projectId) {
       fetchContacts();
       fetchPersonas();
+      fetchSurveys();
     }
   }, [projectId]);
+
+  const fetchSurveys = async () => {
+    const { data, error } = await supabase
+      .from('surveys')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false });
+    
+    if (!error && data && data.length > 0) {
+      setSelectedSurveyId(data[0].id);
+    }
+  };
+
+  const fetchSurveyResults = async (surveyId: string) => {
+    setLoadingResults(true);
+    try {
+      // Fetch survey details
+      const { data: survey } = await supabase
+        .from('surveys')
+        .select('*')
+        .eq('id', surveyId)
+        .single();
+
+      // Fetch survey sends (total sent)
+      const { data: sends, count: totalSent } = await supabase
+        .from('survey_sends')
+        .select('*', { count: 'exact' })
+        .eq('survey_id', surveyId);
+
+      // Fetch responses
+      const { data: responses } = await supabase
+        .from('survey_responses')
+        .select('*')
+        .eq('survey_id', surveyId);
+
+      // Calculate metrics
+      const totalResponses = responses?.length || 0;
+      const responseRate = totalSent ? Math.round((totalResponses / totalSent) * 100) : 0;
+
+      // Calculate average completion time (if we track opened_at)
+      const completionTimes = sends?.filter(s => s.opened_at && s.completed_at)
+        .map(s => new Date(s.completed_at).getTime() - new Date(s.opened_at).getTime()) || [];
+      const avgCompletionTime = completionTimes.length 
+        ? Math.round(completionTimes.reduce((a, b) => a + b, 0) / completionTimes.length / 1000 / 60)
+        : null;
+
+      // Aggregate question responses
+      const questions = (survey?.questions as any)?.questions || [];
+      const questionStats = questions.map((q: any, qIdx: number) => {
+        const answers = responses?.map(r => r.responses?.[`q${qIdx}`]).filter(Boolean) || [];
+        
+        if (q.type === 'multiple_choice') {
+          const counts: Record<string, number> = {};
+          answers.forEach(a => {
+            counts[a] = (counts[a] || 0) + 1;
+          });
+          return {
+            question: q.text,
+            type: q.type,
+            answers: Object.entries(counts).map(([name, value]) => ({ name, value }))
+          };
+        } else if (q.type === 'text') {
+          return {
+            question: q.text,
+            type: q.type,
+            textResponses: answers.map((text, idx) => ({ text, index: idx }))
+          };
+        } else if (q.type === 'rating') {
+          const ratings = answers.map(Number).filter(n => !isNaN(n));
+          const avg = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+          return {
+            question: q.text,
+            type: q.type,
+            average: Math.round(avg * 10) / 10,
+            distribution: ratings
+          };
+        }
+        return null;
+      }).filter(Boolean);
+
+      // Get text responses for sentiment analysis
+      const textResponses = questionStats
+        .filter(q => q.type === 'text' && q.textResponses?.length > 0)
+        .flatMap(q => q.textResponses);
+
+      setSurveyResults({
+        survey,
+        totalSent,
+        totalResponses,
+        responseRate,
+        avgCompletionTime,
+        questionStats,
+        textResponses
+      });
+
+      // Run sentiment analysis if there are text responses
+      if (textResponses.length > 0) {
+        const { data: sentiment, error: sentimentError } = await supabase.functions.invoke(
+          'analyze-survey-responses',
+          { body: { textResponses } }
+        );
+        
+        if (!sentimentError) {
+          setSentimentAnalysis(sentiment);
+        }
+      }
+
+    } catch (error: any) {
+      console.error('Error fetching results:', error);
+      toast({
+        title: "Error Loading Results",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingResults(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedSurveyId && activeTab === 'results') {
+      fetchSurveyResults(selectedSurveyId);
+    }
+  }, [selectedSurveyId, activeTab]);
 
   const fetchContacts = async () => {
     try {
@@ -363,6 +495,7 @@ const SurveyAutomation = () => {
         description: `Successfully sent ${data.sent} surveys. ${data.failed} failed.`,
       });
 
+      setSelectedSurveyId(survey.id);
       setActiveTab("results");
     } catch (error: any) {
       toast({
@@ -973,19 +1106,250 @@ const SurveyAutomation = () => {
 
           {/* Results Tab */}
           <TabsContent value="results" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Survey Results</CardTitle>
-                <CardDescription>
-                  Track survey sends and responses
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-center text-muted-foreground py-8">
-                  Results will appear here after sending surveys
-                </p>
-              </CardContent>
-            </Card>
+            {loadingResults ? (
+              <Card>
+                <CardContent className="py-12">
+                  <div className="text-center">
+                    <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+                    <p className="text-muted-foreground">Analyzing survey results...</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : !surveyResults ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Survey Results</CardTitle>
+                  <CardDescription>
+                    Track survey sends and responses
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-center text-muted-foreground py-8">
+                    Send surveys first to see results
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Metrics Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardDescription>Response Rate</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-bold">{surveyResults.responseRate}%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        {surveyResults.totalResponses} of {surveyResults.totalSent} sent
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardDescription>Total Responses</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-bold">{surveyResults.totalResponses}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Completed surveys
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardDescription>Avg. Completion Time</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="flex items-baseline gap-2">
+                        <Clock className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-3xl font-bold">
+                          {surveyResults.avgCompletionTime || 'N/A'}
+                        </span>
+                        {surveyResults.avgCompletionTime && <span className="text-sm">min</span>}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Average time to complete
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardDescription>Survey Status</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Badge 
+                        variant={surveyResults.survey?.status === 'active' ? 'default' : 'secondary'}
+                        className="text-base"
+                      >
+                        {surveyResults.survey?.status || 'Unknown'}
+                      </Badge>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Current survey state
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                {/* Sentiment Analysis */}
+                {sentimentAnalysis && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <MessageSquare className="h-5 w-5" />
+                        AI Sentiment Analysis
+                      </CardTitle>
+                      <CardDescription>
+                        Automated analysis of open-ended text responses
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Overall Sentiment</Label>
+                          <div className="flex items-center gap-3">
+                            <Badge 
+                              variant={
+                                sentimentAnalysis.overall_sentiment === 'positive' ? 'default' :
+                                sentimentAnalysis.overall_sentiment === 'negative' ? 'destructive' :
+                                'secondary'
+                              }
+                              className="text-lg px-4 py-2"
+                            >
+                              {sentimentAnalysis.overall_sentiment}
+                            </Badge>
+                            <span className="text-2xl font-bold">
+                              {sentimentAnalysis.sentiment_score}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold">Key Themes</Label>
+                          <ul className="space-y-2">
+                            {sentimentAnalysis.key_themes?.map((theme: string, idx: number) => (
+                              <li key={idx} className="flex items-start gap-2 text-sm">
+                                <span className="text-primary mt-0.5">•</span>
+                                <span>{theme}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold text-destructive">Pain Points</Label>
+                          <ul className="space-y-2">
+                            {sentimentAnalysis.pain_points?.map((point: string, idx: number) => (
+                              <li key={idx} className="flex items-start gap-2 text-sm">
+                                <span className="text-destructive mt-0.5">•</span>
+                                <span>{point}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold text-green-600">Positive Highlights</Label>
+                          <ul className="space-y-2">
+                            {sentimentAnalysis.positive_highlights?.map((highlight: string, idx: number) => (
+                              <li key={idx} className="flex items-start gap-2 text-sm">
+                                <span className="text-green-600 mt-0.5">•</span>
+                                <span>{highlight}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+
+                        <div className="space-y-3">
+                          <Label className="text-base font-semibold">Actionable Insights</Label>
+                          <ul className="space-y-2">
+                            {sentimentAnalysis.actionable_insights?.map((insight: string, idx: number) => (
+                              <li key={idx} className="flex items-start gap-2 text-sm">
+                                <span className="text-primary mt-0.5">→</span>
+                                <span className="font-medium">{insight}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Question-by-Question Analysis */}
+                {surveyResults.questionStats?.map((stat: any, idx: number) => (
+                  <Card key={idx}>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Q{idx + 1}: {stat.question}</CardTitle>
+                      <Badge variant="outline">{stat.type}</Badge>
+                    </CardHeader>
+                    <CardContent>
+                      {stat.type === 'multiple_choice' && stat.answers && (
+                        <div className="space-y-4">
+                          <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={stat.answers}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis dataKey="name" />
+                              <YAxis />
+                              <Tooltip />
+                              <Bar dataKey="value" fill="hsl(var(--primary))" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {stat.answers.map((answer: any, aIdx: number) => (
+                              <div key={aIdx} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                                <span className="text-sm">{answer.name}</span>
+                                <Badge>{answer.value}</Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {stat.type === 'rating' && (
+                        <div className="text-center py-8">
+                          <div className="text-5xl font-bold text-primary mb-2">
+                            {stat.average}
+                          </div>
+                          <p className="text-muted-foreground">Average Rating</p>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            Based on {stat.distribution.length} responses
+                          </p>
+                        </div>
+                      )}
+
+                      {stat.type === 'text' && stat.textResponses && (
+                        <div className="space-y-3">
+                          <Label>Individual Responses ({stat.textResponses.length})</Label>
+                          <div className="space-y-2 max-h-96 overflow-y-auto">
+                            {stat.textResponses.map((response: any, rIdx: number) => (
+                              <div key={rIdx} className="p-3 bg-muted/50 rounded text-sm">
+                                <div className="flex items-start justify-between gap-2">
+                                  <p className="flex-1">{response.text}</p>
+                                  {sentimentAnalysis?.individual_sentiments?.[response.index] && (
+                                    <Badge variant="outline" className="shrink-0">
+                                      {sentimentAnalysis.individual_sentiments[response.index].sentiment}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </>
+            )}
           </TabsContent>
         </Tabs>
       </main>
