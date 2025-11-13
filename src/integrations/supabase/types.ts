@@ -210,7 +210,7 @@ export type Database = {
           avatar_url?: string | null
           buying_behavior: Json
           created_at?: string
-          demographics: Json
+          demographics?: Json
           goals: string[]
           id?: string
           name: string
