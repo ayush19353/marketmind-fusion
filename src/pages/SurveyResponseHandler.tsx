@@ -42,13 +42,38 @@ const SurveyResponseHandler = () => {
 
         // If answer is provided (multiple choice or rating), submit immediately
         if (answer && currentQuestion.type !== 'text') {
-          await supabase.from("survey_responses").insert({
-            survey_id: surveyId,
-            contact_id: contactId,
-            question_index: parseInt(questionIdx),
-            question_text: currentQuestion.text,
-            answer: answer,
-          });
+          // Check if response already exists for this contact
+          const { data: existingResponse } = await supabase
+            .from("survey_responses")
+            .select("*")
+            .eq("survey_id", surveyId)
+            .eq("contact_id", contactId)
+            .single();
+
+          const questionKey = `q${questionIdx}`;
+          const existingResponses = (existingResponse?.responses && typeof existingResponse.responses === 'object') 
+            ? existingResponse.responses as Record<string, any>
+            : {};
+          const updatedResponses = { ...existingResponses, [questionKey]: answer };
+
+          if (existingResponse) {
+            // Update existing response
+            await supabase
+              .from("survey_responses")
+              .update({ 
+                responses: updatedResponses,
+                submitted_at: new Date().toISOString()
+              })
+              .eq("id", existingResponse.id);
+          } else {
+            // Insert new response
+            await supabase.from("survey_responses").insert({
+              survey_id: surveyId,
+              contact_id: contactId,
+              responses: updatedResponses,
+              submitted_at: new Date().toISOString()
+            });
+          }
           setSubmitted(true);
         } else {
           // Show text input form
@@ -63,13 +88,39 @@ const SurveyResponseHandler = () => {
   const handleTextSubmit = async () => {
     if (!textAnswer.trim()) return;
 
-    await supabase.from("survey_responses").insert({
-      survey_id: surveyId,
-      contact_id: contactId,
-      question_index: parseInt(questionIdx!),
-      question_text: question.text,
-      answer: textAnswer,
-    });
+    // Check if response already exists for this contact
+    const { data: existingResponse } = await supabase
+      .from("survey_responses")
+      .select("*")
+      .eq("survey_id", surveyId)
+      .eq("contact_id", contactId)
+      .single();
+
+    const questionKey = `q${questionIdx}`;
+    const existingResponses = (existingResponse?.responses && typeof existingResponse.responses === 'object') 
+      ? existingResponse.responses as Record<string, any>
+      : {};
+    const updatedResponses = { ...existingResponses, [questionKey]: textAnswer };
+
+    if (existingResponse) {
+      // Update existing response
+      await supabase
+        .from("survey_responses")
+        .update({ 
+          responses: updatedResponses,
+          submitted_at: new Date().toISOString()
+        })
+        .eq("id", existingResponse.id);
+    } else {
+      // Insert new response
+      await supabase.from("survey_responses").insert({
+        survey_id: surveyId,
+        contact_id: contactId,
+        responses: updatedResponses,
+        submitted_at: new Date().toISOString()
+      });
+    }
+    
     setSubmitted(true);
     setShowTextForm(false);
   };
