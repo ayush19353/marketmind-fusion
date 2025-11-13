@@ -107,7 +107,7 @@ Return as JSON with variant_name, headline, body_text, and cta for each.`;
           }
         }],
         tool_choice: { type: "function", function: { name: "generate_copy_variants" } },
-        max_completion_tokens: 2000,
+        max_completion_tokens: 4000,
       }),
     });
 
