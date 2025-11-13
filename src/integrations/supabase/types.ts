@@ -14,7 +14,130 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      hypotheses: {
+        Row: {
+          confidence: number
+          created_at: string
+          decision_rule: string
+          id: string
+          method: string
+          method_technical: string
+          order_index: number
+          project_id: string
+          statement: string
+          updated_at: string
+        }
+        Insert: {
+          confidence: number
+          created_at?: string
+          decision_rule: string
+          id?: string
+          method: string
+          method_technical: string
+          order_index?: number
+          project_id: string
+          statement: string
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          decision_rule?: string
+          id?: string
+          method?: string
+          method_technical?: string
+          order_index?: number
+          project_id?: string
+          statement?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hypotheses_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "research_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      research_plans: {
+        Row: {
+          budget: Json
+          created_at: string
+          id: string
+          methodology: Json
+          project_id: string
+          sample: Json
+          target_audience: Json
+          timeline: Json
+          updated_at: string
+        }
+        Insert: {
+          budget: Json
+          created_at?: string
+          id?: string
+          methodology: Json
+          project_id: string
+          sample: Json
+          target_audience: Json
+          timeline: Json
+          updated_at?: string
+        }
+        Update: {
+          budget?: Json
+          created_at?: string
+          id?: string
+          methodology?: Json
+          project_id?: string
+          sample?: Json
+          target_audience?: Json
+          timeline?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_plans_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "research_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      research_projects: {
+        Row: {
+          created_at: string
+          id: string
+          mode: string
+          product_description: string
+          product_name: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mode?: string
+          product_description: string
+          product_name: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mode?: string
+          product_description?: string
+          product_name?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

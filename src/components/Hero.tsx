@@ -5,6 +5,10 @@ import { useNavigate } from "react-router-dom";
 export const Hero = () => {
   const navigate = useNavigate();
 
+  const handleGetStarted = () => {
+    navigate("/auth");
+  };
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-subtle">
       {/* Background effects */}
@@ -37,7 +41,7 @@ export const Hero = () => {
             <Button 
               variant="hero" 
               size="xl" 
-              onClick={() => navigate("/dashboard")}
+              onClick={handleGetStarted}
               className="group"
             >
               Start My Research

@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ModeToggle } from "@/components/ModeToggle";
 import { Button } from "@/components/ui/button";
-import { Home, ChevronRight } from "lucide-react";
+import { Home, ChevronRight, LogOut } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type Mode = "guided" | "expert";
 
@@ -20,7 +22,36 @@ const steps = [
 
 const Dashboard = () => {
   const [mode, setMode] = useState<Mode>("guided");
+  const [userEmail, setUserEmail] = useState<string>("");
   const navigate = useNavigate();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email || "");
+      }
+    };
+    fetchUser();
+  }, []);
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Signed out",
+        description: "You've been successfully signed out.",
+      });
+      navigate("/");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -33,10 +64,16 @@ const Dashboard = () => {
             </Button>
             <div>
               <h1 className="text-xl font-bold text-foreground">Research Dashboard</h1>
-              <p className="text-sm text-muted-foreground">Your AI-powered research workspace</p>
+              <p className="text-sm text-muted-foreground">{userEmail}</p>
             </div>
           </div>
-          <ModeToggle mode={mode} onModeChange={setMode} />
+          <div className="flex items-center gap-3">
+            <ModeToggle mode={mode} onModeChange={setMode} />
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </header>
 
