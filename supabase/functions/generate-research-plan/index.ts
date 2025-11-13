@@ -74,13 +74,13 @@ Include:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-5-mini-2025-08-07',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
         response_format: { type: 'json_object' },
-        max_completion_tokens: 3000,
+        max_tokens: 4000,
       }),
     });
 
@@ -92,6 +92,12 @@ Include:
 
     const data = await response.json();
     console.log('OpenAI raw response:', JSON.stringify(data));
+
+    // Check for token limit issues
+    if (data.choices[0]?.finish_reason === 'length') {
+      console.error('Response hit token limit:', data);
+      throw new Error('Response was too long. Please try with simpler requirements.');
+    }
 
     // Validate response structure
     if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
