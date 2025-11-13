@@ -576,6 +576,37 @@ const SurveyAutomation = () => {
 
           {/* Matches Tab */}
           <TabsContent value="matches" className="space-y-6">
+            {matches.length > 0 && (
+              <Card className="bg-primary/5 border-primary/20">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-primary" />
+                    Match Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div className="bg-background rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground">Total Matches</p>
+                      <p className="text-3xl font-bold text-primary">{matches.length}</p>
+                    </div>
+                    <div className="bg-background rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground">Average Score</p>
+                      <p className="text-3xl font-bold text-primary">
+                        {Math.round(matches.reduce((sum, m) => sum + m.match_score, 0) / matches.length)}%
+                      </p>
+                    </div>
+                    <div className="bg-background rounded-lg p-4">
+                      <p className="text-sm text-muted-foreground">Top Match</p>
+                      <p className="text-3xl font-bold text-primary">
+                        {Math.max(...matches.map(m => m.match_score))}%
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle>Configure Survey</CardTitle>
@@ -607,47 +638,68 @@ const SurveyAutomation = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle>Matched Contacts ({matches.length})</CardTitle>
+                <CardTitle>Matched Contacts Preview ({matches.length})</CardTitle>
                 <CardDescription>
-                  Review AI-matched contacts before sending surveys
+                  Review AI-matched contacts and their match reasons before sending surveys
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
                   {matches.map((match, idx) => (
-                    <div key={idx} className="border rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium">
+                    <div key={idx} className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <p className="font-semibold text-lg">
                             {match.contact.first_name} {match.contact.last_name}
                           </p>
                           <p className="text-sm text-muted-foreground">{match.contact.email}</p>
+                          {match.contact.age_range && (
+                            <Badge variant="outline" className="mt-2">
+                              {match.contact.age_range}
+                            </Badge>
+                          )}
                         </div>
-                        <Badge variant="secondary" className="text-lg">
-                          {match.match_score}%
-                        </Badge>
+                        <div className="text-right">
+                          <Badge 
+                            variant={match.match_score >= 80 ? "default" : "secondary"} 
+                            className="text-lg px-3 py-1"
+                          >
+                            {match.match_score}%
+                          </Badge>
+                          <p className="text-xs text-muted-foreground mt-1">Match Score</p>
+                        </div>
                       </div>
-                      <div className="mt-2">
-                        <p className="text-xs font-semibold mb-1">Match Reasons:</p>
-                        <ul className="text-xs text-muted-foreground space-y-1">
+                      <div className="bg-muted/50 rounded-md p-3 mt-3">
+                        <p className="text-xs font-semibold mb-2 flex items-center gap-1">
+                          <Target className="h-3 w-3" />
+                          Why This Contact Matches:
+                        </p>
+                        <ul className="text-sm space-y-1.5">
                           {match.reasons.map((reason: string, i: number) => (
-                            <li key={i}>• {reason}</li>
+                            <li key={i} className="flex items-start gap-2">
+                              <span className="text-primary mt-0.5">•</span>
+                              <span>{reason}</span>
+                            </li>
                           ))}
                         </ul>
                       </div>
                     </div>
                   ))}
                   {matches.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">
-                      No matches yet. Go to the Match tab to find contacts.
-                    </p>
+                    <div className="text-center py-12">
+                      <Target className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground font-medium">No matches yet</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Go to the Match tab to find contacts for your persona
+                      </p>
+                    </div>
                   )}
                 </div>
 
                 {matches.length > 0 && (
                   <Button 
                     onClick={handleSendSurveys} 
-                    disabled={isSending}
+                    disabled={isSending || !surveyTitle}
                     className="w-full mt-6"
                     size="lg"
                   >
