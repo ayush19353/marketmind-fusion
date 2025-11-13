@@ -109,7 +109,9 @@ const SurveyAutomation = () => {
         : null;
 
       // Aggregate question responses
-      const questions = (survey?.questions as any)?.questions || [];
+      const questions = typeof survey?.questions === 'string' 
+        ? JSON.parse(survey.questions) 
+        : (survey?.questions || []);
       const questionStats = questions.map((q: any, qIdx: number) => {
         const answers = responses?.map(r => r.responses?.[`q${qIdx}`]).filter(Boolean) || [];
         
@@ -154,7 +156,8 @@ const SurveyAutomation = () => {
         responseRate,
         avgCompletionTime,
         questionStats,
-        textResponses
+        textResponses,
+        allResponses: responses
       });
 
       // Run sentiment analysis if there are text responses
@@ -990,6 +993,16 @@ const SurveyAutomation = () => {
               </Card>
             ) : (
               <>
+                {/* Survey Overview */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{surveyResults.survey?.title}</CardTitle>
+                    <CardDescription>
+                      {surveyResults.survey?.description || 'Survey results and analysis'}
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+
                 {/* Metrics Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <Card>
@@ -1055,6 +1068,85 @@ const SurveyAutomation = () => {
                     </CardContent>
                   </Card>
                 </div>
+
+                {/* Total Responses Analysis */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5" />
+                      All Responses ({surveyResults.totalResponses})
+                    </CardTitle>
+                    <CardDescription>
+                      Complete breakdown of all survey submissions
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {surveyResults.totalResponses === 0 ? (
+                      <p className="text-center text-muted-foreground py-8">
+                        No responses yet. Responses will appear here as they come in.
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Sent</p>
+                            <p className="text-2xl font-bold">{surveyResults.totalSent}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Completed</p>
+                            <p className="text-2xl font-bold text-green-600">{surveyResults.totalResponses}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Pending</p>
+                            <p className="text-2xl font-bold text-orange-600">
+                              {(surveyResults.totalSent || 0) - surveyResults.totalResponses}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="border rounded-lg overflow-hidden">
+                          <div className="bg-muted px-4 py-3 font-semibold text-sm border-b">
+                            Individual Responses
+                          </div>
+                          <div className="max-h-96 overflow-y-auto">
+                            {surveyResults.allResponses?.map((response: any, idx: number) => {
+                              const questions = typeof surveyResults.survey?.questions === 'string' 
+                                ? JSON.parse(surveyResults.survey.questions) 
+                                : (surveyResults.survey?.questions || []);
+                              
+                              return (
+                                <div key={response.id} className="p-4 hover:bg-muted/50 border-b last:border-b-0">
+                                  <div className="flex items-center justify-between mb-3">
+                                    <span className="font-semibold text-sm">Response #{idx + 1}</span>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="outline">
+                                        {new Date(response.submitted_at).toLocaleDateString()}
+                                      </Badge>
+                                      <Badge>Complete</Badge>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {questions.map((q: any, qIdx: number) => {
+                                      const answer = response.responses?.[`q${qIdx}`];
+                                      return answer ? (
+                                        <div key={qIdx} className="text-sm">
+                                          <span className="font-medium text-foreground">Q{qIdx + 1}. {q.text}:</span>
+                                          <p className="text-muted-foreground ml-4 mt-1">
+                                            {q.type === 'rating' ? `${answer} ⭐` : answer}
+                                          </p>
+                                        </div>
+                                      ) : null;
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Sentiment Analysis */}
                 {sentimentAnalysis && (
