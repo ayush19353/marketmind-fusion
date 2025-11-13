@@ -461,25 +461,7 @@ const SurveyAutomation = () => {
 
     setIsSending(true);
     try {
-      // Create Google Form with the generated questions
-      toast({
-        title: "Creating Google Form...",
-        description: "Programmatically creating your survey form",
-      });
-
-      const { data: formData, error: formError } = await supabase.functions.invoke('create-google-form', {
-        body: {
-          title: surveyTitle,
-          description: surveyDescription,
-          questions: surveyQuestions
-        }
-      });
-
-      if (formError) throw formError;
-
-      const googleFormUrl = formData.formUrl;
-      setExternalFormUrl(googleFormUrl);
-
+      // Create survey with questions first
       const { data: survey, error: surveyError } = await supabase
         .from('surveys')
         .insert({
@@ -487,14 +469,25 @@ const SurveyAutomation = () => {
           persona_id: selectedPersonaId,
           title: surveyTitle,
           description: surveyDescription,
-          external_form_url: googleFormUrl,
-          questions: { questions: surveyQuestions },
+          questions: surveyQuestions,
           status: 'pending',
         })
         .select()
         .single();
 
       if (surveyError) throw surveyError;
+
+      // Generate public form URL
+      const publicFormUrl = `${window.location.origin}/survey/${survey.id}`;
+      setExternalFormUrl(publicFormUrl);
+
+      // Update survey with the public URL
+      const { error: updateError } = await supabase
+        .from('surveys')
+        .update({ external_form_url: publicFormUrl })
+        .eq('id', survey.id);
+
+      if (updateError) throw updateError;
 
       // Send emails
       const { data, error } = await supabase.functions.invoke('send-survey-emails', {
