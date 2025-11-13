@@ -18,29 +18,185 @@ const ResearchPlan = () => {
   const { toast } = useToast();
 
   const projectId = location.state?.projectId;
-  const productName = location.state?.productName || "Your product";
-  const productDescription = location.state?.productDescription || "";
-  const hypotheses = location.state?.hypotheses || [];
+  const [productName, setProductName] = useState<string>(location.state?.productName || "Your product");
+  const [productDescription, setProductDescription] = useState<string>(location.state?.productDescription || "");
+  const [hypotheses, setHypotheses] = useState<any[]>(location.state?.hypotheses || []);
 
   const [plan, setPlan] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
 
   useEffect(() => {
-    if (!projectId || !hypotheses.length) {
+    if (!projectId) {
       toast({
         title: "Error",
-        description: "Missing project data. Please start from the beginning.",
+        description: "Missing project data. Please start from the dashboard.",
         variant: "destructive",
       });
-      navigate("/product-input");
+      navigate("/dashboard");
       return;
     }
 
-    generateResearchPlan();
+    let cancelled = false;
+
+    const initialize = async () => {
+      try {
+        setIsLoading(true);
+        setIsGeneratingPlan(false);
+
+        let resolvedProductName = location.state?.productName || productName;
+        let resolvedProductDescription = location.state?.productDescription || productDescription;
+
+        if (!resolvedProductDescription || resolvedProductName === "Your product") {
+          const { data: projectDetails, error: projectError } = await supabase
+            .from('research_projects')
+            .select('product_name, product_description, mode')
+            .eq('id', projectId)
+            .single();
+
+          if (projectError && projectError.code !== 'PGRST116') {
+            throw projectError;
+          }
+
+          if (projectDetails) {
+            resolvedProductName = projectDetails.product_name || resolvedProductName;
+            resolvedProductDescription = projectDetails.product_description || resolvedProductDescription;
+
+            if (!cancelled) {
+              setProductName(resolvedProductName || "Your product");
+              setProductDescription(resolvedProductDescription || "");
+              if (projectDetails.mode) {
+                setMode((currentMode) => {
+                  const nextMode = projectDetails.mode as Mode | null;
+                  if (!nextMode) return currentMode;
+                  return nextMode === currentMode ? currentMode : nextMode;
+                });
+              }
+            }
+          }
+        }
+
+        let resolvedHypotheses = location.state?.hypotheses || hypotheses;
+
+        if (!resolvedHypotheses.length) {
+          const { data: hypothesisRows, error: hypothesisError } = await supabase
+            .from('hypotheses')
+            .select('statement, method, method_technical, decision_rule, confidence')
+            .eq('project_id', projectId)
+            .order('order_index');
+
+          if (hypothesisError) {
+            throw hypothesisError;
+          }
+
+          resolvedHypotheses = (hypothesisRows || []).map((row) => ({
+            statement: row.statement,
+            method: row.method,
+            methodTechnical: row.method_technical,
+            decisionRule: row.decision_rule,
+            confidence: row.confidence,
+          }));
+        }
+
+        if (!resolvedHypotheses.length) {
+          toast({
+            title: "Missing hypotheses",
+            description: "We couldn't find existing hypotheses for this project.",
+            variant: "destructive",
+          });
+
+          setIsLoading(false);
+          navigate("/hypothesis", {
+            state: {
+              projectId,
+              productName: resolvedProductName,
+              productDescription: resolvedProductDescription,
+              mode,
+            },
+          });
+          return;
+        }
+
+        if (!cancelled) {
+          setHypotheses(resolvedHypotheses);
+          setProductName(resolvedProductName || "Your product");
+          setProductDescription(resolvedProductDescription || "");
+        }
+
+        if (!resolvedProductDescription) {
+          toast({
+            title: "Missing product details",
+            description: "We need the product description to build the research plan.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          navigate("/product-input");
+          return;
+        }
+
+        const { data: existingPlan, error: planError } = await supabase
+          .from('research_plans')
+          .select('target_audience, sample, methodology, timeline, budget')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (planError) {
+          throw planError;
+        }
+
+        if (existingPlan) {
+          if (!cancelled) {
+            setPlan({
+              targetAudience: existingPlan.target_audience,
+              sample: existingPlan.sample,
+              methodology: existingPlan.methodology,
+              timeline: existingPlan.timeline,
+              budget: existingPlan.budget,
+            });
+            setIsLoading(false);
+            setIsGeneratingPlan(false);
+          }
+          return;
+        }
+
+        await generateResearchPlan({
+          activeHypotheses: resolvedHypotheses,
+          productName: resolvedProductName,
+          productDescription: resolvedProductDescription,
+        });
+      } catch (error: any) {
+        console.error('Error initializing research plan:', error);
+        if (!cancelled) {
+          toast({
+            title: "Error",
+            description: error.message || "Failed to load research plan. Please try again.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initialize();
+
+    return () => {
+      cancelled = true;
+    };
   }, [projectId]);
 
-  const generateResearchPlan = async () => {
+  const generateResearchPlan = async ({
+    activeHypotheses,
+    productName,
+    productDescription,
+  }: {
+    activeHypotheses: any[];
+    productName: string;
+    productDescription: string;
+  }) => {
     try {
+      setIsGeneratingPlan(true);
       setIsLoading(true);
 
       // Call generate-research-plan edge function
@@ -50,7 +206,7 @@ const ResearchPlan = () => {
           body: {
             productName,
             productDescription,
-            hypotheses,
+            hypotheses: activeHypotheses,
             mode
           }
         }
@@ -99,6 +255,7 @@ const ResearchPlan = () => {
         variant: "destructive",
       });
     } finally {
+      setIsGeneratingPlan(false);
       setIsLoading(false);
     }
   };
@@ -178,7 +335,11 @@ const ResearchPlan = () => {
               <CardContent className="pt-6">
                 <div className="text-center py-12">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                  <p className="text-muted-foreground">AI is generating your research plan...</p>
+                  <p className="text-muted-foreground">
+                    {isGeneratingPlan
+                      ? "AI is generating your research plan..."
+                      : "Loading your saved research plan..."}
+                  </p>
                 </div>
               </CardContent>
             </Card>

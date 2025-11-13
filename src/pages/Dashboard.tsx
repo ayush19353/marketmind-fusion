@@ -156,6 +156,7 @@ const Dashboard = () => {
         state: {
           projectId: project.id,
           productName: project.product_name,
+          productDescription: project.product_description,
           mode: project.mode
         }
       });
