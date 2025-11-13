@@ -44,6 +44,8 @@ const SurveyAutomation = () => {
   const [surveyTitle, setSurveyTitle] = useState("");
   const [surveyDescription, setSurveyDescription] = useState("");
   const [externalFormUrl, setExternalFormUrl] = useState("");
+  const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
+  const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] = useState("");
   const [minMatchScore, setMinMatchScore] = useState(70);
   
@@ -396,7 +398,47 @@ const SurveyAutomation = () => {
     });
   };
 
-  // Questions generation removed - using external forms
+  const handleGenerateQuestions = async () => {
+    if (!surveyTitle) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide a survey title",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGeneratingQuestions(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-survey-questions', {
+        body: {
+          surveyTitle,
+          surveyDescription,
+          personaInfo: selectedPersonaId && personas.find(p => p.id === selectedPersonaId)
+            ? `${personas.find(p => p.id === selectedPersonaId).name}`
+            : undefined,
+          questionCount: 5
+        }
+      });
+
+      if (error) throw error;
+
+      setSurveyQuestions(data.questions || []);
+      toast({
+        title: "Questions Generated",
+        description: `Generated ${data.questions?.length || 0} survey questions`,
+      });
+    } catch (error: any) {
+      console.error('Error generating questions:', error);
+      toast({
+        title: "Generation Failed",
+        description: error.message || "Failed to generate questions",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingQuestions(false);
+    }
+  };
 
   const handleSendSurveys = async () => {
     if (!surveyTitle || matches.length === 0) {
@@ -408,10 +450,10 @@ const SurveyAutomation = () => {
       return;
     }
 
-    if (!externalFormUrl) {
+    if (surveyQuestions.length === 0) {
       toast({
-        title: "Error",
-        description: "Please provide an external form URL (e.g., Google Forms link)",
+        title: "No Questions",
+        description: "Please generate survey questions first",
         variant: "destructive",
       });
       return;
@@ -419,6 +461,25 @@ const SurveyAutomation = () => {
 
     setIsSending(true);
     try {
+      // Create Google Form with the generated questions
+      toast({
+        title: "Creating Google Form...",
+        description: "Programmatically creating your survey form",
+      });
+
+      const { data: formData, error: formError } = await supabase.functions.invoke('create-google-form', {
+        body: {
+          title: surveyTitle,
+          description: surveyDescription,
+          questions: surveyQuestions
+        }
+      });
+
+      if (formError) throw formError;
+
+      const googleFormUrl = formData.formUrl;
+      setExternalFormUrl(googleFormUrl);
+
       const { data: survey, error: surveyError } = await supabase
         .from('surveys')
         .insert({
@@ -426,8 +487,8 @@ const SurveyAutomation = () => {
           persona_id: selectedPersonaId,
           title: surveyTitle,
           description: surveyDescription,
-          external_form_url: externalFormUrl,
-          questions: { questions: [] },
+          external_form_url: googleFormUrl,
+          questions: { questions: surveyQuestions },
           status: 'pending',
         })
         .select()
@@ -779,17 +840,42 @@ const SurveyAutomation = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>External Form URL (Required) *</Label>
-                  <Input
-                    value={externalFormUrl}
-                    onChange={(e) => setExternalFormUrl(e.target.value)}
-                    placeholder="e.g., https://forms.google.com/your-form-id"
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Create your survey on Google Forms or another platform first, then paste the link here.
-                  </p>
+                <div className="space-y-4">
+                  <Button 
+                    onClick={handleGenerateQuestions}
+                    disabled={!surveyTitle || generatingQuestions}
+                    className="w-full"
+                    size="lg"
+                  >
+                    {generatingQuestions ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Generating Questions...
+                      </>
+                    ) : (
+                      "Generate Survey Questions with AI"
+                    )}
+                  </Button>
+                  
+                  {surveyQuestions.length > 0 && (
+                    <div className="space-y-3 border rounded-lg p-4 bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold">Generated Questions ({surveyQuestions.length})</p>
+                        <Badge variant="secondary">{surveyQuestions.length} questions</Badge>
+                      </div>
+                      <div className="space-y-2">
+                        {surveyQuestions.map((q, idx) => (
+                          <div key={idx} className="p-3 bg-background rounded-lg border">
+                            <p className="text-sm font-medium mb-1">{idx + 1}. {q.text}</p>
+                            <Badge variant="outline" className="text-xs">{q.type}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        ✓ A Google Form will be automatically created with these questions when you send the survey
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -856,9 +942,25 @@ const SurveyAutomation = () => {
 
                 {matches.length > 0 && (
                   <div className="space-y-3 mt-6">
+                    {externalFormUrl && (
+                      <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+                        <p className="text-sm font-semibold mb-2 flex items-center gap-2">
+                          <Mail className="h-4 w-4" />
+                          Google Form Created
+                        </p>
+                        <a 
+                          href={externalFormUrl} 
+                          target="_blank" 
+                          rel="noopener noreferrer" 
+                          className="text-sm text-primary hover:underline break-all block"
+                        >
+                          {externalFormUrl}
+                        </a>
+                      </div>
+                    )}
                     <Button 
                       onClick={handleSendSurveys} 
-                      disabled={isSending || !surveyTitle || !externalFormUrl}
+                      disabled={isSending || !surveyTitle || surveyQuestions.length === 0}
                       className="w-full"
                       size="lg"
                     >
