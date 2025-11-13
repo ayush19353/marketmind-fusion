@@ -13,10 +13,10 @@ serve(async (req) => {
 
   try {
     const { productName, productDescription, researchData, personaCount = 3 } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured');
     }
 
     console.log('Generating customer personas for:', productName);
@@ -72,14 +72,14 @@ Generate ${personaCount} distinct customer personas representing key segments of
 
 Make each persona unique and representative of a different market segment.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-5-mini-2025-08-07',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
@@ -114,7 +114,8 @@ Make each persona unique and representative of a different market segment.`;
             }
           }
         }],
-        tool_choice: { type: "function", function: { name: "generate_personas" } }
+        tool_choice: { type: "function", function: { name: "generate_personas" } },
+        max_completion_tokens: 2500,
       }),
     });
 

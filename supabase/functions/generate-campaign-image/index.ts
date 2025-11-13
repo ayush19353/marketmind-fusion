@@ -13,10 +13,10 @@ serve(async (req) => {
 
   try {
     const { productName, imageType, style, brandColors } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured');
     }
 
     console.log('Generating campaign image:', { productName, imageType, style });
@@ -52,39 +52,37 @@ Requirements:
 
 Generate a stunning marketing image that converts.`;
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-image-preview',
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        modalities: ['image', 'text']
+        model: 'gpt-image-1',
+        prompt: prompt,
+        n: 1,
+        size: '1024x1024',
+        quality: 'high',
+        response_format: 'b64_json'
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI API error:', response.status, errorText);
-      throw new Error(`AI API error: ${response.status}`);
+      console.error('OpenAI API error:', response.status, errorText);
+      throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('AI image generation response received');
+    console.log('OpenAI image generation response received');
 
-    if (!data.choices?.[0]?.message?.images?.[0]?.image_url?.url) {
+    if (!data.data?.[0]?.b64_json) {
       console.error('Invalid response structure:', data);
       throw new Error('No image generated in response');
     }
 
-    const imageUrl = data.choices[0].message.images[0].image_url.url;
+    const imageUrl = `data:image/png;base64,${data.data[0].b64_json}`;
 
     console.log('Successfully generated campaign image');
 
