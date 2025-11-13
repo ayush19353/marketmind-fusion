@@ -275,7 +275,26 @@ const SurveyAutomation = () => {
 
     setIsSending(true);
     try {
-      // Create survey
+      // Create survey with sample questions
+      const sampleQuestions = [
+        {
+          text: "How likely are you to recommend this product to a friend?",
+          type: "multiple_choice",
+          required: true,
+          options: ["Very Likely", "Likely", "Neutral", "Unlikely", "Very Unlikely"]
+        },
+        {
+          text: "What do you like most about this product?",
+          type: "text",
+          required: true
+        },
+        {
+          text: "What improvements would you suggest?",
+          type: "text",
+          required: false
+        }
+      ];
+
       const { data: survey, error: surveyError } = await supabase
         .from('surveys')
         .insert({
@@ -283,7 +302,7 @@ const SurveyAutomation = () => {
           persona_id: selectedPersonaId,
           title: surveyTitle,
           description: surveyDescription,
-          questions: { questions: [] }, // Placeholder
+          questions: { questions: sampleQuestions },
           status: 'pending',
         })
         .select()

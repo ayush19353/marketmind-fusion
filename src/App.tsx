@@ -15,6 +15,7 @@ import Report from "./pages/Report";
 import MarketingStudio from "./pages/MarketingStudio";
 import ABTestPredictor from "./pages/ABTestPredictor";
 import SurveyAutomation from "./pages/SurveyAutomation";
+import SurveyResponse from "./pages/SurveyResponse";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -30,6 +31,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/survey/response" element={<SurveyResponse />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/product-input" element={<ProtectedRoute><ProductInput /></ProtectedRoute>} />
           <Route path="/hypothesis" element={<ProtectedRoute><Hypothesis /></ProtectedRoute>} />
