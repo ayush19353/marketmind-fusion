@@ -419,6 +419,48 @@ export type Database = {
         }
         Relationships: []
       }
+      survey_responses: {
+        Row: {
+          contact_id: string | null
+          created_at: string
+          id: string
+          responses: Json
+          submitted_at: string
+          survey_id: string
+        }
+        Insert: {
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          responses?: Json
+          submitted_at?: string
+          survey_id: string
+        }
+        Update: {
+          contact_id?: string | null
+          created_at?: string
+          id?: string
+          responses?: Json
+          submitted_at?: string
+          survey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_responses_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "survey_responses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       survey_sends: {
         Row: {
           completed_at: string | null
