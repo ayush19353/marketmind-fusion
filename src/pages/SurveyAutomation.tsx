@@ -44,8 +44,6 @@ const SurveyAutomation = () => {
   const [surveyTitle, setSurveyTitle] = useState("");
   const [surveyDescription, setSurveyDescription] = useState("");
   const [externalFormUrl, setExternalFormUrl] = useState("");
-  const [surveyQuestions, setSurveyQuestions] = useState<any[]>([]);
-  const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [selectedPersonaId, setSelectedPersonaId] = useState("");
   const [minMatchScore, setMinMatchScore] = useState(70);
   
@@ -398,49 +396,7 @@ const SurveyAutomation = () => {
     });
   };
 
-  const handleGenerateQuestions = async () => {
-    if (!surveyTitle) {
-      toast({
-        title: "Missing Information",
-        description: "Please provide a survey title first.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setGeneratingQuestions(true);
-    try {
-      const selectedPersona = personas.find(p => p.id === selectedPersonaId);
-      const personaInfo = selectedPersona 
-        ? `${selectedPersona.name} - ${selectedPersona.age_range}, ${JSON.stringify(selectedPersona.demographics)}`
-        : null;
-
-      const { data, error } = await supabase.functions.invoke('generate-survey-questions', {
-        body: {
-          surveyTitle,
-          surveyDescription,
-          personaInfo,
-          questionCount: 5
-        }
-      });
-
-      if (error) throw error;
-
-      setSurveyQuestions(data.questions);
-      toast({
-        title: "Questions Generated!",
-        description: `Created ${data.questions.length} survey questions. Customize them below.`,
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error Generating Questions",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setGeneratingQuestions(false);
-    }
-  };
+  // Questions generation removed - using external forms
 
   const handleSendSurveys = async () => {
     if (!surveyTitle || matches.length === 0) {
@@ -452,10 +408,10 @@ const SurveyAutomation = () => {
       return;
     }
 
-    if (surveyQuestions.length === 0) {
+    if (!externalFormUrl) {
       toast({
-        title: "No Questions",
-        description: "Please generate survey questions first.",
+        title: "Error",
+        description: "Please provide an external form URL (e.g., Google Forms link)",
         variant: "destructive",
       });
       return;
@@ -470,8 +426,8 @@ const SurveyAutomation = () => {
           persona_id: selectedPersonaId,
           title: surveyTitle,
           description: surveyDescription,
-          external_form_url: externalFormUrl || null,
-          questions: { questions: surveyQuestions },
+          external_form_url: externalFormUrl,
+          questions: { questions: [] },
           status: 'pending',
         })
         .select()
@@ -824,14 +780,15 @@ const SurveyAutomation = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>External Form URL (Optional)</Label>
+                  <Label>External Form URL (Required) *</Label>
                   <Input
                     value={externalFormUrl}
                     onChange={(e) => setExternalFormUrl(e.target.value)}
                     placeholder="e.g., https://forms.google.com/your-form-id"
+                    required
                   />
                   <p className="text-xs text-muted-foreground">
-                    Leave empty to use the built-in survey form. Provide a Google Form or other external form URL to use instead.
+                    Create your survey on Google Forms or another platform first, then paste the link here.
                   </p>
                 </div>
               </CardContent>
@@ -899,24 +856,9 @@ const SurveyAutomation = () => {
 
                 {matches.length > 0 && (
                   <div className="space-y-3 mt-6">
-                    {surveyQuestions.length === 0 && (
-                      <div className="bg-muted/50 border border-dashed rounded-lg p-4 text-center">
-                        <p className="text-sm text-muted-foreground">
-                          Generate survey questions first
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setActiveTab("questions")}
-                          className="mt-2"
-                        >
-                          Go to Questions Tab
-                        </Button>
-                      </div>
-                    )}
                     <Button 
                       onClick={handleSendSurveys} 
-                      disabled={isSending || !surveyTitle || surveyQuestions.length === 0}
+                      disabled={isSending || !surveyTitle || !externalFormUrl}
                       className="w-full"
                       size="lg"
                     >
@@ -932,186 +874,6 @@ const SurveyAutomation = () => {
                         </>
                       )}
                     </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Questions Tab */}
-          <TabsContent value="questions" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI-Generated Survey Questions</CardTitle>
-                <CardDescription>
-                  Generate and customize survey questions before sending
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="survey-title">Survey Title *</Label>
-                    <Input
-                      id="survey-title"
-                      value={surveyTitle}
-                      onChange={(e) => setSurveyTitle(e.target.value)}
-                      placeholder="e.g., Product Feedback Survey"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="survey-description">Survey Description (Optional)</Label>
-                    <Textarea
-                      id="survey-description"
-                      value={surveyDescription}
-                      onChange={(e) => setSurveyDescription(e.target.value)}
-                      placeholder="Provide context for better question generation..."
-                      rows={3}
-                    />
-                  </div>
-                  <Button
-                    onClick={handleGenerateQuestions}
-                    disabled={generatingQuestions || !surveyTitle}
-                    className="w-full"
-                  >
-                    {generatingQuestions ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Generating Questions...
-                      </>
-                    ) : (
-                      <>
-                        <Target className="mr-2 h-4 w-4" />
-                        Generate AI Questions
-                      </>
-                    )}
-                  </Button>
-                </div>
-
-                {surveyQuestions.length > 0 && (
-                  <div className="space-y-4 pt-6 border-t">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold">Generated Questions ({surveyQuestions.length})</h4>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSurveyQuestions([])}
-                      >
-                        Clear All
-                      </Button>
-                    </div>
-                    {surveyQuestions.map((q, idx) => (
-                      <Card key={idx} className="border-2">
-                        <CardContent className="pt-6">
-                          <div className="space-y-4">
-                            <div className="flex items-start gap-4">
-                              <Badge variant="outline" className="mt-1">
-                                Q{idx + 1}
-                              </Badge>
-                              <div className="flex-1 space-y-3">
-                                <div>
-                                  <Label>Question Text</Label>
-                                  <Textarea
-                                    value={q.text}
-                                    onChange={(e) => {
-                                      const updated = [...surveyQuestions];
-                                      updated[idx].text = e.target.value;
-                                      setSurveyQuestions(updated);
-                                    }}
-                                    rows={2}
-                                  />
-                                </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <Label>Question Type</Label>
-                                    <Select
-                                      value={q.type}
-                                      onValueChange={(value) => {
-                                        const updated = [...surveyQuestions];
-                                        updated[idx].type = value;
-                                        if (value !== 'multiple_choice') {
-                                          delete updated[idx].options;
-                                        }
-                                        setSurveyQuestions(updated);
-                                      }}
-                                    >
-                                      <SelectTrigger>
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="text">Open Text</SelectItem>
-                                        <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                                        <SelectItem value="rating">Rating Scale</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <div className="flex items-end">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                      <input
-                                        type="checkbox"
-                                        checked={q.required}
-                                        onChange={(e) => {
-                                          const updated = [...surveyQuestions];
-                                          updated[idx].required = e.target.checked;
-                                          setSurveyQuestions(updated);
-                                        }}
-                                        className="rounded"
-                                      />
-                                      <span className="text-sm">Required</span>
-                                    </label>
-                                  </div>
-                                </div>
-                                {q.type === 'multiple_choice' && (
-                                  <div>
-                                    <Label>Options (one per line)</Label>
-                                    <Textarea
-                                      value={q.options?.join('\n') || ''}
-                                      onChange={(e) => {
-                                        const updated = [...surveyQuestions];
-                                        updated[idx].options = e.target.value.split('\n').filter(o => o.trim());
-                                        setSurveyQuestions(updated);
-                                      }}
-                                      rows={4}
-                                      placeholder="Option 1&#10;Option 2&#10;Option 3"
-                                    />
-                                  </div>
-                                )}
-                              </div>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  const updated = surveyQuestions.filter((_, i) => i !== idx);
-                                  setSurveyQuestions(updated);
-                                }}
-                              >
-                                Remove
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setSurveyQuestions([
-                            ...surveyQuestions,
-                            { text: '', type: 'text', required: false }
-                          ]);
-                        }}
-                        className="flex-1"
-                      >
-                        Add Question
-                      </Button>
-                      <Button
-                        onClick={() => setActiveTab("matches")}
-                        disabled={surveyQuestions.length === 0}
-                        className="flex-1"
-                      >
-                        Continue to Send
-                      </Button>
-                    </div>
                   </div>
                 )}
               </CardContent>
