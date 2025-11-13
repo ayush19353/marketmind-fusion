@@ -160,17 +160,17 @@ const MarketingStudio = () => {
 
       if (error) throw error;
 
-      // Save to database
+      // Save to database with proper defaults for all fields
       const personaRecords = data.personas.map((p: any) => ({
         project_id: projectId,
         name: p.name,
-        age_range: p.age_range,
-        demographics: p.demographics,
-        psychographics: p.psychographics,
-        pain_points: p.pain_points,
-        goals: p.goals,
-        preferred_channels: p.preferred_channels,
-        buying_behavior: p.buying_behavior
+        age_range: p.age_range || 'Not specified',
+        demographics: p.demographics || {},
+        psychographics: p.psychographics || {},
+        pain_points: p.pain_points || [],
+        goals: p.goals || [],
+        preferred_channels: p.preferred_channels || [],
+        buying_behavior: p.buying_behavior || {}
       }));
 
       const { error: insertError } = await supabase

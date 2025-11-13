@@ -138,10 +138,22 @@ Make each persona unique and representative of a different market segment.`;
       throw new Error('AI response missing personas array');
     }
 
+    // Sanitize persona data to ensure all fields have proper defaults
+    const sanitizedPersonas = personaData.personas.map((p: any) => ({
+      name: p.name || 'Unnamed Persona',
+      age_range: p.age_range || 'Not specified',
+      demographics: p.demographics || {},
+      psychographics: p.psychographics || {},
+      pain_points: Array.isArray(p.pain_points) ? p.pain_points : [],
+      goals: Array.isArray(p.goals) ? p.goals : [],
+      preferred_channels: Array.isArray(p.preferred_channels) ? p.preferred_channels : [],
+      buying_behavior: p.buying_behavior || {}
+    }));
+
     console.log('Successfully generated customer personas');
 
     return new Response(
-      JSON.stringify({ personas: personaData.personas }),
+      JSON.stringify({ personas: sanitizedPersonas }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
