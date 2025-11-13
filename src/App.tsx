@@ -13,6 +13,7 @@ import DataInsights from "./pages/DataInsights";
 import Analysis from "./pages/Analysis";
 import Report from "./pages/Report";
 import MarketingStudio from "./pages/MarketingStudio";
+import ABTestPredictor from "./pages/ABTestPredictor";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import { ProtectedRoute } from "./components/ProtectedRoute";
@@ -33,9 +34,10 @@ const App = () => (
           <Route path="/hypothesis" element={<ProtectedRoute><Hypothesis /></ProtectedRoute>} />
           <Route path="/research-plan" element={<ProtectedRoute><ResearchPlan /></ProtectedRoute>} />
           <Route path="/instruments" element={<ProtectedRoute><Instruments /></ProtectedRoute>} />
-          <Route path="/data-insights" element={<ProtectedRoute><DataInsights /></ProtectedRoute>} />
-          <Route path="/analysis" element={<ProtectedRoute><Analysis /></ProtectedRoute>} />
-          <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
+            <Route path="/data-insights" element={<ProtectedRoute><DataInsights /></ProtectedRoute>} />
+            <Route path="/analysis" element={<ProtectedRoute><Analysis /></ProtectedRoute>} />
+            <Route path="/report" element={<ProtectedRoute><Report /></ProtectedRoute>} />
+            <Route path="/ab-test-predictor" element={<ProtectedRoute><ABTestPredictor /></ProtectedRoute>} />
           <Route path="/marketing-studio" element={<ProtectedRoute><MarketingStudio /></ProtectedRoute>} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

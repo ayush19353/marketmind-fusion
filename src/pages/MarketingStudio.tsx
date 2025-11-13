@@ -658,6 +658,33 @@ const MarketingStudio = () => {
               </div>
             </TabsContent>
           </Tabs>
+
+          {/* A/B Test Predictor Section */}
+          <Card className="mt-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                A/B Test Predictor
+              </CardTitle>
+              <CardDescription>
+                Predict campaign performance before running tests using AI modeling
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Use AI to analyze campaign variants and predict which will perform better based on historical data, marketing psychology, and best practices. Make data-driven decisions before investing in full A/B tests.
+              </p>
+              <Button 
+                onClick={() => navigate('/ab-test-predictor', { 
+                  state: { projectId, productName } 
+                })}
+                className="w-full"
+              >
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Open A/B Test Predictor
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </main>
     </div>

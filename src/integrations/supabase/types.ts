@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      ab_test_predictions: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          id: string
+          predicted_metrics: Json
+          predicted_winner: string
+          project_id: string
+          recommendations: string
+          test_name: string
+          updated_at: string
+          variant_a: Json
+          variant_b: Json
+        }
+        Insert: {
+          confidence_score: number
+          created_at?: string
+          id?: string
+          predicted_metrics: Json
+          predicted_winner: string
+          project_id: string
+          recommendations: string
+          test_name: string
+          updated_at?: string
+          variant_a: Json
+          variant_b: Json
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          id?: string
+          predicted_metrics?: Json
+          predicted_winner?: string
+          project_id?: string
+          recommendations?: string
+          test_name?: string
+          updated_at?: string
+          variant_a?: Json
+          variant_b?: Json
+        }
+        Relationships: []
+      }
       campaign_images: {
         Row: {
           created_at: string
