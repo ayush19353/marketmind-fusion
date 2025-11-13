@@ -10,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, UserPlus, Users, Send, Loader2, Mail, Target, TrendingUp, Upload } from "lucide-react";
+import { ArrowLeft, UserPlus, Users, Send, Loader2, Mail, Target, TrendingUp, Upload, FileUp } from "lucide-react";
+import Papa from "papaparse";
 
 const SurveyAutomation = () => {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ const SurveyAutomation = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isMatching, setIsMatching] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   // Contact form state
   const [newContact, setNewContact] = useState({
@@ -179,6 +181,88 @@ const SurveyAutomation = () => {
     }
   };
 
+  const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast({
+        title: "Invalid File",
+        description: "Please upload a CSV file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsImporting(true);
+    
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        try {
+          const validContacts = results.data
+            .filter((row: any) => row.first_name && row.email)
+            .map((row: any) => ({
+              project_id: projectId,
+              first_name: row.first_name?.trim() || '',
+              last_name: row.last_name?.trim() || '',
+              email: row.email?.trim().toLowerCase() || '',
+              age_range: row.age_range?.trim() || null,
+              interests: row.interests ? row.interests.split(',').map((i: string) => i.trim()) : [],
+              demographics: row.demographics ? JSON.parse(row.demographics) : {},
+              behavior_data: row.behavior_data ? JSON.parse(row.behavior_data) : {},
+              notes: row.notes?.trim() || null,
+            }));
+
+          if (validContacts.length === 0) {
+            toast({
+              title: "No Valid Contacts",
+              description: "CSV must have at least 'first_name' and 'email' columns with data.",
+              variant: "destructive",
+            });
+            setIsImporting(false);
+            return;
+          }
+
+          const { error } = await supabase
+            .from('contacts')
+            .insert(validContacts);
+
+          if (error) throw error;
+
+          toast({
+            title: "Import Successful",
+            description: `Successfully imported ${validContacts.length} contacts.`,
+          });
+
+          fetchContacts();
+          
+          // Reset file input
+          event.target.value = '';
+        } catch (error: any) {
+          console.error('Import error:', error);
+          toast({
+            title: "Import Failed",
+            description: error.message || "Failed to import contacts. Check CSV format.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsImporting(false);
+        }
+      },
+      error: (error) => {
+        console.error('Parse error:', error);
+        toast({
+          title: "Parse Error",
+          description: "Failed to parse CSV file. Check the file format.",
+          variant: "destructive",
+        });
+        setIsImporting(false);
+      }
+    });
+  };
+
   const handleSendSurveys = async () => {
     if (!surveyTitle || matches.length === 0) {
       toast({
@@ -280,9 +364,47 @@ const SurveyAutomation = () => {
           <TabsContent value="contacts" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Add Contact</CardTitle>
+                <CardTitle>Bulk Import Contacts</CardTitle>
                 <CardDescription>
-                  Add people to your contact list for targeted survey distribution
+                  Upload a CSV file to import multiple contacts at once
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                  <Input
+                    id="csv-upload"
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={handleCSVImport}
+                    disabled={isImporting}
+                  />
+                  <Label
+                    htmlFor="csv-upload"
+                    className="cursor-pointer flex flex-col items-center gap-2"
+                  >
+                    <FileUp className="h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm font-medium">
+                      {isImporting ? "Importing..." : "Click to upload CSV"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      Required columns: first_name, email
+                    </span>
+                  </Label>
+                </div>
+                <div className="bg-muted p-3 rounded-lg text-xs space-y-1">
+                  <p className="font-medium">CSV Format Example:</p>
+                  <p className="font-mono">first_name,last_name,email,age_range,interests</p>
+                  <p className="font-mono">John,Doe,john@example.com,25-34,"tech,fitness"</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Add Single Contact</CardTitle>
+                <CardDescription>
+                  Manually add one contact to your list
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
