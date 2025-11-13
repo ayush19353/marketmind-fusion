@@ -24,26 +24,43 @@ serve(async (req) => {
     const systemPrompt = mode === 'expert' 
       ? `You are a marketing research expert. Generate 3 testable, data-driven marketing hypotheses for the given product. 
       
-      For each hypothesis, provide:
-      1. A clear, testable statement
-      2. The recommended research method (use technical terminology)
-      3. A plain language version of the method
-      4. A specific decision rule with quantifiable thresholds
-      5. A confidence score (0-100) based on market relevance
+      IMPORTANT: Return ONLY valid JSON with this exact structure:
+      {
+        "hypotheses": [
+          {
+            "statement": "hypothesis statement",
+            "method": "plain language method",
+            "methodTechnical": "technical method name",
+            "decisionRule": "decision criteria",
+            "confidence": 85
+          }
+        ]
+      }
       
-      Format the response as a JSON array with exactly 3 hypotheses.`
+      For each hypothesis:
+      1. A clear, testable statement
+      2. A plain language version of the method
+      3. The recommended research method (use technical terminology)
+      4. A specific decision rule with quantifiable thresholds
+      5. A confidence score (0-100) based on market relevance`
       : `You are a helpful marketing assistant. Generate 3 simple, testable ideas about the given product that we can research.
       
-      For each idea, provide:
-      1. A clear statement about the product or its target customers
-      2. How we should test it (use simple, plain language)
-      3. The technical name for the research method
-      4. What result would tell us to move forward
-      5. How confident you are this is worth testing (0-100)
+      IMPORTANT: Return ONLY valid JSON with this exact structure:
+      {
+        "hypotheses": [
+          {
+            "statement": "clear idea about the product",
+            "method": "how to test it in simple words",
+            "methodTechnical": "technical research method name",
+            "decisionRule": "what result means move forward",
+            "confidence": 85
+          }
+        ]
+      }
       
-      Format the response as a JSON array with exactly 3 hypotheses.`;
+      Generate exactly 3 hypotheses.`;
 
-    const userPrompt = `Product: ${productName}\n\nDescription: ${productDescription}\n\nGenerate 3 hypotheses for this product.`;
+    const userPrompt = `Product: ${productName}\n\nDescription: ${productDescription}\n\nGenerate 3 hypotheses.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -69,10 +86,34 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log('OpenAI response received');
+    console.log('OpenAI raw response:', JSON.stringify(data));
 
-    const content = JSON.parse(data.choices[0].message.content);
-    const hypotheses = content.hypotheses || [];
+    // Validate response structure
+    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+      console.error('Invalid OpenAI response structure:', data);
+      throw new Error('Invalid response from OpenAI');
+    }
+
+    const content = data.choices[0].message.content;
+    console.log('Content to parse:', content);
+
+    let parsedContent;
+    try {
+      parsedContent = JSON.parse(content);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Content that failed to parse:', content);
+      throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+    }
+
+    const hypotheses = parsedContent.hypotheses || [];
+    
+    if (!Array.isArray(hypotheses) || hypotheses.length === 0) {
+      console.error('No hypotheses in response:', parsedContent);
+      throw new Error('AI did not generate hypotheses');
+    }
+
+    console.log('Successfully parsed hypotheses:', hypotheses.length);
 
     // Ensure we have the correct structure
     const formattedHypotheses = hypotheses.map((h: any, index: number) => ({

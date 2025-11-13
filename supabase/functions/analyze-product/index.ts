@@ -19,16 +19,25 @@ serve(async (req) => {
       throw new Error('OPENAI_API_KEY is not configured');
     }
 
-    console.log('Analyzing product input');
+    console.log('Analyzing product input:', productDescription);
 
-    const systemPrompt = `You are a marketing intelligence AI. Analyze the product description and provide:
+    const systemPrompt = `You are a marketing intelligence AI. Analyze the product description and return your response ONLY as a valid JSON object.
+
+IMPORTANT: Your entire response must be valid JSON with this exact structure:
+{
+  "category": "product category here",
+  "targetAudience": "target audience description here",
+  "trends": "relevant consumer trends here",
+  "positioning": "competitive positioning opportunities here",
+  "suggestedName": "suggested name or null"
+}
+
+Analyze:
 1. Product category and market classification
 2. Target audience demographics and psychographics  
 3. Current consumer trends relevant to this product
 4. Competitive positioning opportunities
-5. Suggested product name if not provided
-
-Format the response as a JSON object with keys: category, targetAudience, trends, positioning, suggestedName (or null if name is clear from description).`;
+5. Suggested product name if not clearly provided in description`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -40,7 +49,7 @@ Format the response as a JSON object with keys: category, targetAudience, trends
         model: 'gpt-5-mini-2025-08-07',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Analyze this product: ${productDescription}` }
+          { role: 'user', content: productDescription }
         ],
         response_format: { type: 'json_object' },
         max_completion_tokens: 1500,
@@ -54,7 +63,34 @@ Format the response as a JSON object with keys: category, targetAudience, trends
     }
 
     const data = await response.json();
-    const analysis = JSON.parse(data.choices[0].message.content);
+    console.log('OpenAI response received:', JSON.stringify(data));
+
+    // Validate response structure
+    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+      console.error('Invalid OpenAI response structure:', data);
+      throw new Error('Invalid response from OpenAI');
+    }
+
+    const content = data.choices[0].message.content;
+    console.log('Content to parse:', content);
+
+    // Try to parse the JSON response
+    let analysis;
+    try {
+      analysis = JSON.parse(content);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Content that failed to parse:', content);
+      throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+    }
+
+    // Ensure all required fields exist
+    if (!analysis.category || !analysis.targetAudience) {
+      console.error('Missing required fields in analysis:', analysis);
+      throw new Error('AI response missing required fields');
+    }
+
+    console.log('Successfully parsed analysis:', analysis);
 
     return new Response(
       JSON.stringify({ analysis }),

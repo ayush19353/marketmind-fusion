@@ -21,20 +21,51 @@ serve(async (req) => {
 
     console.log('Generating research plan for:', productName);
 
-    const systemPrompt = `You are a marketing research strategist. Create a comprehensive research plan based on the product and hypotheses provided.
+    const systemPrompt = `You are a marketing research strategist. Create a comprehensive research plan.
 
-The plan should include:
+IMPORTANT: Return ONLY valid JSON with this exact structure:
+{
+  "targetAudience": {
+    "demographics": "string",
+    "psychographics": "string",
+    "size": "string"
+  },
+  "sample": {
+    "size": number,
+    "type": "string",
+    "typePlain": "string",
+    "confidence": number,
+    "margin": number
+  },
+  "methodology": {
+    "primary": "string",
+    "techniques": [
+      {"name": "string", "plain": "string", "responses": number}
+    ]
+  },
+  "timeline": {
+    "total": "string",
+    "phases": [
+      {"phase": "string", "duration": "string"}
+    ]
+  },
+  "budget": {
+    "estimated": "string",
+    "breakdown": [
+      {"item": "string", "cost": "string"}
+    ]
+  }
+}
+
+Include:
 1. Target Audience (demographics, psychographics, market size)
 2. Sample (size calculation, sampling method, confidence level, margin of error)
 3. Methodology (research techniques with participant counts)
 4. Timeline (phases with durations, total estimated time)
-5. Budget (itemized breakdown with ranges, total estimated cost)
-
-Format the response as a JSON object with these exact keys: targetAudience, sample, methodology, timeline, budget.
-Make the plan realistic and actionable.`;
+5. Budget (itemized breakdown with ranges, total estimated cost)`;
 
     const hypothesesText = hypotheses.map((h: any) => h.statement).join('\n');
-    const userPrompt = `Product: ${productName}\n\nDescription: ${productDescription}\n\nHypotheses to test:\n${hypothesesText}\n\nCreate a detailed research plan.`;
+    const userPrompt = `Product: ${productName}\n\nDescription: ${productDescription}\n\nHypotheses:\n${hypothesesText}\n\nCreate plan.`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -60,9 +91,33 @@ Make the plan realistic and actionable.`;
     }
 
     const data = await response.json();
-    console.log('OpenAI response received');
+    console.log('OpenAI raw response:', JSON.stringify(data));
 
-    const plan = JSON.parse(data.choices[0].message.content);
+    // Validate response structure
+    if (!data.choices || !data.choices[0] || !data.choices[0].message || !data.choices[0].message.content) {
+      console.error('Invalid OpenAI response structure:', data);
+      throw new Error('Invalid response from OpenAI');
+    }
+
+    const content = data.choices[0].message.content;
+    console.log('Content to parse:', content);
+
+    let plan;
+    try {
+      plan = JSON.parse(content);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Content that failed to parse:', content);
+      throw new Error(`Failed to parse AI response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+    }
+
+    // Validate required fields
+    if (!plan.targetAudience || !plan.sample || !plan.methodology) {
+      console.error('Missing required fields in plan:', plan);
+      throw new Error('AI response missing required fields');
+    }
+
+    console.log('Successfully parsed research plan');
 
     return new Response(
       JSON.stringify({ plan }),
