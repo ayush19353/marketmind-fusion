@@ -2,7 +2,7 @@
 
 ## Project info
 
-**URL**: https://lovable.dev/projects/b539ff29-d694-46a0-8de8-b2a5a9129fa4
+**URL**: [https://lovable.dev/projects/b539ff29-d694-46a0-8de8-b2a5a9129fa4](https://marketmind-fusion.lovable.app)
 
 ## How can I edit this code?
 
